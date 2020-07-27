@@ -1,1 +1,1 @@
- web: python BotScript.py
+ worker: python BotScript.py
