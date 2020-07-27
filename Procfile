@@ -1,1 +1,1 @@
- web: python BotScript.py
+ web: python3 BotScript.py

@@ -20,7 +20,7 @@ class BotHandler:
         return result_json
 
     def send_message(self, chat_id, text):
-        params = {'chat_id': chat_id, 'text': text}
+        params = {'chat_id': chat_id, 'text': "Че пишешь, Еба? Мы пока закрыты"}
         method = 'sendMessage'
         resp = requests.post(self.api_url + method, params)
         return resp
