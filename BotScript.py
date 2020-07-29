@@ -1,5 +1,10 @@
 import requests
 import datetime
+import random
+
+from answers import answers 
+
+botName = "@ChatIconRotBot"
 
 class BotHandler:
 
@@ -14,8 +19,8 @@ class BotHandler:
         result_json = resp.json()['result']
         return result_json
 
-    def send_message(self, chat_id, text):
-        params = {'chat_id': chat_id, 'text': text}
+    def send_message(self, chat_id, text, reply_to_message_id):
+        params = {'chat_id': chat_id, 'text': text, 'reply_to_message_id': reply_to_message_id}
         method = 'sendMessage'
         resp = requests.post(self.api_url + method, params)
         return resp
@@ -29,6 +34,25 @@ class BotHandler:
             last_update = get_result[len(get_result)]
 
         return last_update
+
+    def set_chat_photo(self, chat_id, photo):
+    	method = 'setChatPhoto'
+    	params = {'chat_id': chat_id, 'photo': photo}
+
+    	resp = requests.post(self.api_url + method, params)
+
+    	return resp
+
+def botWasMentioned(entities, text):
+	for entity in entities:
+		if entity['type'] == 'mention':
+			offset_mention = int(entity['offset'])
+			len_mention = int(entity['length'])
+
+			if text[offset_mention:offset_mention+len_mention] == botName:
+				return True
+	
+	return False
 
 def main():  
 	token = "1378900357:AAFSpECCd0kejOM22-RdQyK3RYCbXSKLxU8"
@@ -45,15 +69,27 @@ def main():
 
 		last_update = greet_bot.get_last_update()
 
-		last_update_id = last_update['update_id']
-		last_chat_text = last_update['message']['text']
-		last_chat_id = last_update['message']['chat']['id']
-		last_chat_name = last_update['message']['chat']['first_name']
+		print(last_update)
 
-		print("{}\n{}\n{}\n{}\n".format(last_update_id, last_chat_text, last_chat_id, last_chat_name))
-		if (last_update_id > offset):
-			greet_bot.send_message(last_chat_id, "Пошел нахуй")
-			offset = last_update_id;
+		last_update_id = last_update['update_id']
+		last_message_id = last_update['message']['message_id']
+		last_chat_id = last_update['message']['chat']['id']
+
+		if 'text' in last_update['message']:
+			last_message_text = last_update['message']['text']
+
+			if 'entities' in last_update['message']:
+				last_message_entities = last_update['message']['entities']
+			else:
+				last_message_entities = dict()
+
+			isBotWasMentioned = botWasMentioned(last_message_entities, last_message_text)
+
+
+			if (last_update_id > offset):
+				if isBotWasMentioned:
+					greet_bot.send_message(last_chat_id, random.choice(answers), last_message_id)
+				offset = last_update_id;
 
 if __name__ == '__main__':  
 	try:
