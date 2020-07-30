@@ -5,6 +5,7 @@ class BotHandler:
     def __init__(self, token):
         self.token = token
         self.api_url = "https://api.telegram.org/bot{}/".format(token)
+        self.api_file = "https://api.telegram.org/file/bot{}/".format(token)
         self.name = self.get_me()['username']
 
     def get_updates(self, offset=None, timeout=1000):
@@ -38,12 +39,13 @@ class BotHandler:
         return last_update
 
     def set_chat_photo(self, chat_id, photo):
-    	method = 'setChatPhoto'
-    	params = {'chat_id': chat_id, 'photo': photo}
+        method = 'setChatPhoto'
+        params = {'chat_id': chat_id}
+        files = {'photo': photo}
 
-    	resp = requests.post(self.api_url + method, params)
+        resp = requests.post(self.api_url + method, data=params, files=files)
 
-    	return resp.json()
+        return resp.json()
 
     def get_file(self, file_id):
     	method = 'getFile'
@@ -52,3 +54,18 @@ class BotHandler:
     	resp = requests.post(self.api_url + method, params)
     	result_json = resp.json()['result']
     	return result_json
+
+    def get_file_url(self, file_id):
+        file = self.get_file(file_id)
+
+        return self.api_file + file['file_path']
+
+    def delete_chat_photo(self, chat_id):
+        method = 'deleteChatPhoto'
+        params = {'chat_id': chat_id}
+
+        resp = requests.post(self.api_url + method, params)
+
+        resp = requests.post(self.api_url + method, params)
+        result_json = resp.json()['result']
+        return result_json
