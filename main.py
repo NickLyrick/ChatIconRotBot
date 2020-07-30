@@ -1,3 +1,4 @@
+import requests
 import datetime
 import random
 
@@ -17,6 +18,11 @@ def botWasMentioned(entities, text, name):
 	
 	return False
 
+
+def download_file(url):
+    resp = requests.get(url)
+    return resp.content
+
 def main():  
 	token = "1378900357:AAFSpECCd0kejOM22-RdQyK3RYCbXSKLxU8"
 	greet_bot = BotHandler(token)  
@@ -27,12 +33,12 @@ def main():
 	today = now.day
 	hour = now.hour
 
+	photos_id = list()
+
 	while True:
 		greet_bot.get_updates(offset)
 
 		last_update = greet_bot.get_last_update()
-
-		print(last_update)
 
 		last_update_id = last_update['update_id']
 		last_message_id = last_update['message']['message_id']
@@ -40,15 +46,15 @@ def main():
 
 		if 'photo' in last_update['message']:
 			photo_sizes = last_update['message']['photo']
-			file_id = photo_sizes[0]['file_id']
+			file_id = photo_sizes[-1]['file_id']
+			photos_id.append(file_id)
 			
-			print(greet_bot.get_file(file_id))
-			
-			isBotWasMentioned = botWasMentioned(last_update['message']['caption_entities'], last_update['message']['caption'], greet_bot.name)
+			isBotWasMentioned = botWasMentioned(last_update['message']['caption_entities'], 
+				last_update['message']['caption'], greet_bot.name)
 
 			if (last_update_id > offset):
 				if isBotWasMentioned:
-					print(greet_bot.set_chat_photo(last_chat_id, {'type':'photo', 'media': file_id}))
+					greet_bot.set_chat_photo(last_chat_id, download_file(greet_bot.get_file_url(file_id)))
 				offset = last_update_id
 
 		if 'text' in last_update['message']:
