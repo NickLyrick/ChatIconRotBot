@@ -1,49 +1,12 @@
-import requests
 import datetime
 import random
 
+from bot import BotHandler
 from answers import answers 
 
-botName = "@ChatIconRotBot"
 
-class BotHandler:
-
-    def __init__(self, token):
-        self.token = token
-        self.api_url = "https://api.telegram.org/bot{}/".format(token)
-
-    def get_updates(self, offset=None, timeout=1000):
-        method = 'getUpdates'
-        params = {'timeout': timeout, 'offset': offset}
-        resp = requests.get(self.api_url + method, params)
-        result_json = resp.json()['result']
-        return result_json
-
-    def send_message(self, chat_id, text, reply_to_message_id):
-        params = {'chat_id': chat_id, 'text': text, 'reply_to_message_id': reply_to_message_id}
-        method = 'sendMessage'
-        resp = requests.post(self.api_url + method, params)
-        return resp
-
-    def get_last_update(self):
-        get_result = self.get_updates()
-
-        if len(get_result) > 0:
-            last_update = get_result[-1]
-        else:
-            last_update = get_result[len(get_result)]
-
-        return last_update
-
-    def set_chat_photo(self, chat_id, photo):
-    	method = 'setChatPhoto'
-    	params = {'chat_id': chat_id, 'photo': photo}
-
-    	resp = requests.post(self.api_url + method, params)
-
-    	return resp
-
-def botWasMentioned(entities, text):
+def botWasMentioned(entities, text, name):
+	botName = "@" + name
 	for entity in entities:
 		if entity['type'] == 'mention':
 			offset_mention = int(entity['offset'])
@@ -75,6 +38,19 @@ def main():
 		last_message_id = last_update['message']['message_id']
 		last_chat_id = last_update['message']['chat']['id']
 
+		if 'photo' in last_update['message']:
+			photo_sizes = last_update['message']['photo']
+			file_id = photo_sizes[0]['file_id']
+			
+			print(greet_bot.get_file(file_id))
+			
+			isBotWasMentioned = botWasMentioned(last_update['message']['caption_entities'], last_update['message']['caption'], greet_bot.name)
+
+			if (last_update_id > offset):
+				if isBotWasMentioned:
+					print(greet_bot.set_chat_photo(last_chat_id, {'type':'photo', 'media': file_id}))
+				offset = last_update_id
+
 		if 'text' in last_update['message']:
 			last_message_text = last_update['message']['text']
 
@@ -83,13 +59,13 @@ def main():
 			else:
 				last_message_entities = dict()
 
-			isBotWasMentioned = botWasMentioned(last_message_entities, last_message_text)
+			isBotWasMentioned = botWasMentioned(last_message_entities, last_message_text, greet_bot.name)
 
 
 			if (last_update_id > offset):
 				if isBotWasMentioned:
 					greet_bot.send_message(last_chat_id, random.choice(answers), last_message_id)
-				offset = last_update_id;
+				offset = last_update_id
 
 if __name__ == '__main__':  
 	try:
