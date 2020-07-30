@@ -1,1 +1,1 @@
- worker: python BotScript.py
+ worker: python main.py
