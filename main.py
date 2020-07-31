@@ -3,6 +3,7 @@ import datetime
 import random
 import json
 
+from datetime import datetime, timezone
 from collections import deque
 
 from bot import BotHandler
@@ -11,20 +12,21 @@ from answers import answers
 
 class PlatinumRecord(object):
 	"""docstring for PlatinumRecord"""
-	def __init__(self, hunter, game, photo_id):
+	def __init__(self, hunter, game, chat_id, photo_id):
 		super(PlatinumRecord, self).__init__()
 		self.hunter = hunter
 		self.game = game
+		self.chat_id = chat_id
 		self.photo_id = photo_id
 
 	def __str__(self):
 		return "{} {}".format(self.hunter, self.game)
 
 	def __repr__(self):
-		return "PlatinumRecord({}, {}, {})".format(self.hunter, self.game, self.photo_id)
+		return "PlatinumRecord({}, {}, {}, {})".format(self.hunter, self.game, self.chat_id, self.photo_id)
 
 	def __eq__(self, other):
-		return (self.hunter == other.hunter) and (self.game == other.game)
+		return (self.hunter == other.hunter) and (self.game == other.game) and (self.chat_id == other.chat_id)
 
 class Worker(object):
 	"""docstring for Worker"""
@@ -33,6 +35,7 @@ class Worker(object):
 		self.bot = bot
 		self.platinum = deque()
 		self.offset = 0
+		self.time_change = datetime.now(timezone.utc).time()
 	
 	def start(self):
 		while True:
@@ -57,7 +60,7 @@ class Worker(object):
 							username = last_message['from']['username']
 							game = self.get_game_name(last_message['caption'], last_message['caption_entities'][0])
 							
-							self.add_recrod(PlatinumRecord(username, game, file_id))
+							self.add_recrod(PlatinumRecord(username, game, last_chat_id, file_id))
 							print(self.platinum)
 
 							
@@ -79,6 +82,10 @@ class Worker(object):
 							self.bot.send_message(last_chat_id, random.choice(answers), last_message_id)
 						self.offset = last_update_id
 
+				now = datetime.now(timezone.utc).time()
+				if now.minute - self.time_change.minute == 1:
+					self.change_avatar()
+					self.time_change = now
 
 	def add_recrod(self, record):
 		try:
@@ -117,15 +124,15 @@ class Worker(object):
 	    resp = requests.get(url)
 	    return resp.content
 
-	def change_avatar(self, chat_id):
+	def change_avatar(self):
 		try:
 			record = self.platinum.popleft()
 		except IndexError:
 			return False
 
 		photo_url = self.bot.get_file_url(record.photo_id)
-		photo = download_file(photo_url)
-		self.bot.set_chat_photo(chat_id, photo)
+		photo = self.download_file(photo_url)
+		self.bot.set_chat_photo(record.chat_id, photo)
 
 		return True
 
@@ -139,10 +146,6 @@ def main():
 	bot = BotHandler(token)
 	worker = Worker(bot)
 	print("{}".format(bot.api_url))
-	
-	now = datetime.datetime.now()
-	today = now.day
-	hour = now.hour
 
 	worker.start()
 	
