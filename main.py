@@ -1,6 +1,7 @@
 import requests
 import datetime
 import random
+import json
 
 from collections import deque
 
@@ -129,8 +130,12 @@ class Worker(object):
 		return True
 
 
-def main():  
-	token = "1378900357:AAFSpECCd0kejOM22-RdQyK3RYCbXSKLxU8"
+def main():
+
+	with open('config.json') as cfg:
+		config = json.load(cfg)
+
+	token = config['token']
 	bot = BotHandler(token)
 	worker = Worker(bot)
 	print("{}".format(bot.api_url))
