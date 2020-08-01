@@ -82,10 +82,10 @@ class Worker(object):
 							self.bot.send_message(last_chat_id, random.choice(answers), last_message_id)
 						self.offset = last_update_id
 
-				now = datetime.now(timezone.utc).time()
-				if now.minute - self.time_change.minute == 1:
-					self.change_avatar()
-					self.time_change = now
+			now = datetime.now(timezone.utc).time()
+			if now.minute - self.time_change.minute == 1:
+				self.change_avatar()
+				self.time_change = now
 
 	def add_recrod(self, record):
 		try:
