@@ -1,10 +1,10 @@
 import requests
-import datetime
 import random
 import json
 
-from datetime import datetime, timezone
+from os import environ
 from collections import deque
+from datetime import datetime, timezone
 
 from bot import BotHandler
 from answers import answers 
@@ -143,7 +143,7 @@ def main():
 	with open('config.json') as cfg:
 		config = json.load(cfg)
 
-	token = config['token']
+	token = environ.get('TOKEN')
 	bot = BotHandler(token)
 	worker = Worker(bot)
 	print("{}".format(bot.api_url))
