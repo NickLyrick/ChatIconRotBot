@@ -61,6 +61,7 @@ class Worker(object):
 							game = self.get_game_name(last_message['caption'], last_message['caption_entities'][0])
 							
 							self.add_recrod(PlatinumRecord(username, game, last_chat_id, file_id))
+							self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
 							print(self.platinum)
 
 							
@@ -79,7 +80,7 @@ class Worker(object):
 
 					if (last_update_id > self.offset):
 						if isBotWasMentioned:
-							self.bot.send_message(last_chat_id, random.choice(answers), last_message_id)
+							self.bot.send_message(last_chat_id, random.choice(answers['text']), last_message_id)
 						self.offset = last_update_id
 
 			now = datetime.now(timezone.utc).time()
