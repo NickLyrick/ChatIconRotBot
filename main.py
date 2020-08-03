@@ -38,6 +38,7 @@ class Worker(object):
 		self.offset = 0
 		self.update_id = 0
 		self.hour = hour
+		self.can_update_ava = True
 		self.commands = {'/help': self.help_command, '/start': self.start_command,
 						'/showqueue': self.showqueue_command,
 						'/deletegame': self.deletegame_command}
@@ -61,8 +62,14 @@ class Worker(object):
 				self.offset = self.update_id
 
 			now = datetime.now(timezone.utc).time()
-			if now.hour == self.hour:
+			if (now.hour == self.hour) and self.can_update_ava:
 				self.change_avatar()
+				self.can_update_ava = False
+			else:
+				if now.hour - self.hour == 1:
+					self.can_update_ava = True
+
+
 
 	def process_message(self):
 		last_chat_id = self.message['chat']['id']
