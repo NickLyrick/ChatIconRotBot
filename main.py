@@ -153,19 +153,19 @@ class Worker(object):
 	def help_command(self):
 		text = """Для добавления фото в очередь нужно отправить в чат фото с комментарием следующего вида:
 
-				@ChatIconRotBot <название игры>
+@{} <название игры>
 
-				Картинку необходимо подготовить таким образом, чтобы желаемая область была в центре. В идеале обрезать ее в пропорциях 1:1 оставив желаемую область.
+Картинку необходимо подготовить таким образом, чтобы желаемая область была в центре. В идеале обрезать ее в пропорциях 1:1 оставив желаемую область.
 
-				У бота есть следующие команды:
+У бота есть следующие команды:
 
-				\\start - запуск бота в чате
+\\start - запуск бота в чате
 
-				\\help - команда для вывода это сообщения
+\\help - вывод справочной информации
 
-				\\showqueue - отобразить  очередь выбитых платин на данный момент
+\\showqueue - отобразить очередь выбитых платин на данный момент
 
-				\\deletegame - удаление игры из списка по названию"""
+\\deletegame - удалить последнюю добавленную тобой платину""".format(self.bot.name)
 
 		chat_id = self.message['chat']['id']
 		reply_to_message_id = self.message['message_id']
@@ -176,7 +176,7 @@ class Worker(object):
 		chat_id = self.message['chat']['id']
 		reply_to_message_id = self.message['message_id']
 
-		text = "Очередь платин\n"
+		text = "Очередь платин:\n"
 		platinum_chat = [record for record in self.platinum if record.chat_id == chat_id]
 		text_record = "\n".join(str(record) for record in platinum_chat)
 
