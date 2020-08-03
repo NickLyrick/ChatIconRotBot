@@ -48,6 +48,7 @@ class Worker(object):
 			self.bot.get_updates(self.offset)
 
 			last_update = self.bot.get_last_update()
+			print(last_update)
 
 			self.update_id = last_update['update_id']
 			if 'message' in last_update:
@@ -59,7 +60,7 @@ class Worker(object):
 				if last_chat_id in self.where_run:
 					self.process_message()
 
-				self.offset = self.update_id
+			self.offset = self.update_id
 
 			now = datetime.now(timezone.utc).time()
 			if (now.hour == self.hour) and self.can_update_ava:
@@ -153,9 +154,13 @@ class Worker(object):
 	def parse_commands(self, text, entities):
 		for entity in entities:
 			if entity['type'] == 'bot_command':
-				words = text.split("@")
-				if words[1] == self.bot.name:
-					return words[0]
+				try:
+					text.index("@")
+					words = text.split("@")
+					if words[1] == self.bot.name:
+						return words[0]
+				except ValueError:
+					return text
 		return ""				
 
 	def download_file(self, url):
