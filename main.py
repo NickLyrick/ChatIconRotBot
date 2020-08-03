@@ -30,12 +30,13 @@ class PlatinumRecord(object):
 
 class Worker(object):
 	"""docstring for Worker"""
-	def __init__(self, bot):
+
+	def __init__(self, bot, hour):
 		super(Worker, self).__init__()
 		self.bot = bot
 		self.platinum = deque()
 		self.offset = 0
-		self.time_change = datetime.now(timezone.utc).time()
+		self.hour = hour
 	
 	def start(self):
 		while True:
@@ -50,8 +51,8 @@ class Worker(object):
 				last_chat_id = last_message['chat']['id']
 
 				if 'photo' in last_update['message']:
-					isBotWasMentioned = self.botWasMentioned(last_message['caption_entities'], 
-						last_message['caption'])
+					isBotWasMentioned = self.botWasMentioned(last_message.get('caption_entities', list()), 
+						last_message.get('caption'))
 
 					if (last_update_id > self.offset):
 						if isBotWasMentioned:
@@ -62,21 +63,14 @@ class Worker(object):
 							
 							self.add_recrod(PlatinumRecord(username, game, last_chat_id, file_id))
 							self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
-							print(self.platinum)
-
 							
 						self.offset = last_update_id
 
 				if 'text' in last_update['message']:
-					last_message_text = last_update['message']['text']
+					last_message_text = last_message.get('text')
 
-					if 'entities' in last_update['message']:
-						last_message_entities = last_update['message']['entities']
-					else:
-						last_message_entities = dict()
-
-					isBotWasMentioned = self.botWasMentioned(last_message_entities, last_message_text)
-
+					isBotWasMentioned = self.botWasMentioned(last_message.get('entities', list()), last_message_text)
+					command = self.parse_commands(last_message_text, last_message.get('entities', list()))
 
 					if (last_update_id > self.offset):
 						if isBotWasMentioned:
@@ -84,9 +78,8 @@ class Worker(object):
 						self.offset = last_update_id
 
 			now = datetime.now(timezone.utc).time()
-			if now.minute - self.time_change.minute == 1:
+			if now.hour == self.hour:
 				self.change_avatar()
-				self.time_change = now
 
 	def add_recrod(self, record):
 		try:
@@ -120,6 +113,13 @@ class Worker(object):
 		
 		return False
 	
+	def parse_commands(self, text, entities):
+		for entity in entities:
+			if entity['type'] == 'bot_command':
+				words = text.split("@")
+				if words[1] == self.bot.name:
+					return words[0]
+		return ""				
 
 	def download_file(self, url):
 	    resp = requests.get(url)
@@ -145,7 +145,7 @@ def main():
 
 	token = environ.get('TOKEN')
 	bot = BotHandler(token)
-	worker = Worker(bot)
+	worker = Worker(bot, int(config['update_avatar_hour']))
 	print("{}".format(bot.api_url))
 
 	worker.start()
