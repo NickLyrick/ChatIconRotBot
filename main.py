@@ -99,13 +99,18 @@ class Worker(object):
 					self.bot.send_message(last_chat_id, random.choice(answers['text']), last_message_id)
 
 	def process_commands(self):
+		chat_id = self.message['chat']['id']
+
 		if 'text' in self.message:
 			last_message_text = self.message.get('text')
 
 			command = self.parse_commands(last_message_text, self.message.get('entities', list()))
 			if self.update_id > self.offset:
 				if command in self.commands:
-					self.commands[command]()
+					if command == "/start" :
+						self.commands[command]()	
+					elif chat_id in self.where_run:
+						self.commands[command]()
 
 
 	def add_recrod(self, record):
