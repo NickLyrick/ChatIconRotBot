@@ -69,3 +69,5 @@ class BotHandler:
         resp = requests.post(self.api_url + method, params)
         result_json = resp.json()['result']
         return result_json
+
+        
