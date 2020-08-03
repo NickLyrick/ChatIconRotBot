@@ -12,11 +12,10 @@ from answers import answers
 
 class PlatinumRecord(object):
 	"""docstring for PlatinumRecord"""
-	def __init__(self, hunter, game, chat_id, photo_id):
+	def __init__(self, hunter, game, photo_id):
 		super(PlatinumRecord, self).__init__()
 		self.hunter = hunter
 		self.game = game
-		self.chat_id = chat_id
 		self.photo_id = photo_id
 
 	def __str__(self):
@@ -26,7 +25,7 @@ class PlatinumRecord(object):
 		return "PlatinumRecord({}, {}, {}, {})".format(self.hunter, self.game, self.chat_id, self.photo_id)
 
 	def __eq__(self, other):
-		return (self.hunter == other.hunter) and (self.game == other.game) and (self.chat_id == other.chat_id)
+		return (self.hunter == other.hunter) and (self.game == other.game)
 
 class Worker(object):
 	"""docstring for Worker"""
@@ -34,7 +33,7 @@ class Worker(object):
 	def __init__(self, bot, hour):
 		super(Worker, self).__init__()
 		self.bot = bot
-		self.platinum = deque()
+		self.platinum = dict()
 		self.where_run = list()
 		self.offset = 0
 		self.update_id = 0
@@ -68,7 +67,7 @@ class Worker(object):
 	def process_message(self):
 		last_chat_id = self.message['chat']['id']
 		last_message_id = self.message['message_id']
-				
+
 		if 'photo' in self.message:
 			isBotWasMentioned = self.botWasMentioned(self.message.get('caption_entities', list()), 
 			self.message.get('caption'))
@@ -80,7 +79,7 @@ class Worker(object):
 					username = self.message['from']['username']
 					game = self.get_game_name(self.message['caption'], self.message['caption_entities'][0])
 					
-					self.add_recrod(PlatinumRecord(username, game, last_chat_id, file_id))
+					self.add_recrod(PlatinumRecord(username, game, file_id))
 					self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
 
 		if 'text' in self.message:
@@ -103,11 +102,16 @@ class Worker(object):
 
 
 	def add_recrod(self, record):
-		try:
-			position = self.platinum.index(record)
-			self.platinum[position].photo_id = record.photo_id
-		except ValueError:
-			self.platinum.append(record)
+		chat_id = self.message['chat']['id']
+		if chat_id in self.platinum:
+			try:
+				position = self.platinum[chat_id].index(record)
+				self.platinum[chat_id][position].photo_id = record.photo_id
+			except ValueError:
+				self.platinum[chat_id].append(record)
+		else:
+			self.platinum[chat_id] = deque()
+			self.platinum[chat_id].append(record)
 	
 	def get_game_name(self, text, entity):
 		offset_mention = int(entity['offset'])
@@ -147,17 +151,19 @@ class Worker(object):
 	    return resp.content
 
 	def change_avatar(self):
-		try:
-			record = self.platinum.popleft()
-		except IndexError:
-			return False
 
-		photo_url = self.bot.get_file_url(record.photo_id)
-		photo = self.download_file(photo_url)
-		self.bot.set_chat_photo(record.chat_id, photo)
+		for chat_id in self.platinum.keys():
+			try:
+				record = self.platinum[chat_id].popleft()
+			except IndexError:
+				continue
 
-		text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
-		self.bot.send_message(record.chat_id, text)
+			photo_url = self.bot.get_file_url(record.photo_id)
+			photo = self.download_file(photo_url)
+			self.bot.set_chat_photo(chat_id, photo)
+
+			text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
+			self.bot.send_message(chat_id, text)
 
 		return True
 
@@ -196,7 +202,7 @@ class Worker(object):
 		reply_to_message_id = self.message['message_id']
 
 		text = "Очередь платин:\n"
-		platinum_chat = [record for record in self.platinum if record.chat_id == chat_id]
+		platinum_chat = self.platinum.get(chat_id, deque())
 		text_record = "\n".join(str(record) for record in platinum_chat)
 
 		return self.bot.send_message(chat_id, text+text_record, reply_to_message_id)
@@ -206,13 +212,16 @@ class Worker(object):
 		reply_to_message_id = self.message['message_id']
 		username = self.message['from']['username']
 
-		records_user = [record for record in self.platinum if record.hunter == username and record.chat_id == chat_id]
+		platinum_chat = self.platinum.get(chat_id, deque())
+		records_user = [record for record in platinum_chat if record.hunter == username]
 
 		try:
-			self.platinum.remove(records_user[-1])
+			self.platinum[chat_id].remove(records_user[-1])
 			text = "Платина в игре {} игрока {} успешно удалена".format(records_user[-1].game, username)
 		except IndexError:
 			text = "Удалять у {} нечего. Поднажми!".format(username)
+		except KeyError:
+			text = "В данном чате ещё нет трофеев для удаления!"
 
 		return self.bot.send_message(chat_id, text, reply_to_message_id)
 		
