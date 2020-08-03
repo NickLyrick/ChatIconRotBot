@@ -37,6 +37,7 @@ class Worker(object):
 		self.platinum = deque()
 		self.where_run = list()
 		self.offset = 0
+		self.update_id = 0
 		self.hour = hour
 		self.commands = {'/help': self.help_command, '/start': self.start_command,
 						'/showqueue': self.showqueue_command,
@@ -48,44 +49,58 @@ class Worker(object):
 
 			last_update = self.bot.get_last_update()
 
-			last_update_id = last_update['update_id']
+			self.update_id = last_update['update_id']
 			if 'message' in last_update:
 				self.message = last_update['message']
-				last_message_id = self.message['message_id']
 				last_chat_id = self.message['chat']['id']
 
-				if 'photo' in last_update['message']:
-					isBotWasMentioned = self.botWasMentioned(self.message.get('caption_entities', list()), 
-						self.message.get('caption'))
+				self.process_commands()
 
-					if (last_update_id > self.offset):
-						if isBotWasMentioned:
-							photo_sizes = self.message['photo']
-							file_id = photo_sizes[-1]['file_id']
-							username = self.message['from']['username']
-							game = self.get_game_name(self.message['caption'], self.message['caption_entities'][0])
-							
-							self.add_recrod(PlatinumRecord(username, game, last_chat_id, file_id))
-							self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
-							
-						self.offset = last_update_id
+				if last_chat_id in self.where_run:
+					self.process_message()
 
-				if 'text' in last_update['message']:
-					last_message_text = self.message.get('text')
-
-					isBotWasMentioned = self.botWasMentioned(self.message.get('entities', list()), last_message_text)
-					command = self.parse_commands(last_message_text, self.message.get('entities', list()))
-
-					if (last_update_id > self.offset):
-						if isBotWasMentioned:
-							self.bot.send_message(last_chat_id, random.choice(answers['text']), last_message_id)
-						if command in self.commands:
-							self.commands[command]()
-						self.offset = last_update_id
+				self.offset = self.update_id
 
 			now = datetime.now(timezone.utc).time()
 			if now.hour == self.hour:
 				self.change_avatar()
+
+	def process_message(self):
+		last_chat_id = self.message['chat']['id']
+		last_message_id = self.message['message_id']
+				
+		if 'photo' in self.message:
+			isBotWasMentioned = self.botWasMentioned(self.message.get('caption_entities', list()), 
+			self.message.get('caption'))
+
+			if (self.update_id > self.offset):
+				if isBotWasMentioned:
+					photo_sizes = self.message['photo']
+					file_id = photo_sizes[-1]['file_id']
+					username = self.message['from']['username']
+					game = self.get_game_name(self.message['caption'], self.message['caption_entities'][0])
+					
+					self.add_recrod(PlatinumRecord(username, game, last_chat_id, file_id))
+					self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
+
+		if 'text' in self.message:
+			last_message_text = self.message.get('text')
+
+			isBotWasMentioned = self.botWasMentioned(self.message.get('entities', list()), last_message_text)
+
+			if self.update_id > self.offset:
+				if isBotWasMentioned:
+					self.bot.send_message(last_chat_id, random.choice(answers['text']), last_message_id)
+
+	def process_commands(self):
+		if 'text' in self.message:
+			last_message_text = self.message.get('text')
+
+			command = self.parse_commands(last_message_text, self.message.get('entities', list()))
+			if self.update_id > self.offset:
+				if command in self.commands:
+					self.commands[command]()
+
 
 	def add_recrod(self, record):
 		try:
@@ -152,6 +167,7 @@ class Worker(object):
 
 		if not chat_id in self.where_run:
 			self.where_run.append(chat_id)
+			self.bot.send_message(chat_id, "Да начнётся охота!")
 
 	def help_command(self):
 		text = """Для добавления фото в очередь нужно отправить в чат фото с комментарием следующего вида:
