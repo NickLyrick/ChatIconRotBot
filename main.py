@@ -141,6 +141,9 @@ class Worker(object):
 		photo = self.download_file(photo_url)
 		self.bot.set_chat_photo(record.chat_id, photo)
 
+		text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
+		self.bot.send_message(record.chat_id, text)
+
 		return True
 
 
