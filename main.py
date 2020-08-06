@@ -2,7 +2,6 @@ import requests
 import random
 import json
 
-from os import environ
 from collections import deque
 from datetime import datetime, timezone, timedelta
 
@@ -263,7 +262,7 @@ def main():
 	date = get_date(config['date'], config['hour'])
 	delta = timedelta(days=int(config['delta']))
 
-	token = environ.get('TOKEN')
+	token = config['API_TOKEN']
 	bot = BotHandler(token)
 	worker = Worker(bot, date, delta)
 	print("{}".format(bot.api_url))
