@@ -250,11 +250,11 @@ class Worker(object):
 
 		return self.bot.send_message(chat_id, text, reply_to_message_id)
 
-def get_data(data, hour):
+def get_date(data, hour):
 	day, month, year = map(int, data.split('.'))
 
 	return datetime(day=day, month=month, 
-					year=year, hour=hour,
+					year=year, hour=int(hour),
 					tzinfo=timezone.utc)
 def main():
 	with open('config.json') as cfg:
