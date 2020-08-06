@@ -84,6 +84,8 @@ class Worker(object):
 
 					if game == "*Default*":
 						self.add_default_avatar(file_id)
+						text = "Стандартный аватар установлен"
+						sself.bot.send_message(last_chat_id, text, last_message_id)
 					else:
 						self.add_recrod(PlatinumRecord(username, game, file_id))
 						self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
