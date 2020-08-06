@@ -51,7 +51,7 @@ class Worker(object):
 			self.update_id = last_update['update_id']
 			if 'message' in last_update:
 				self.message = last_update['message']
-				last_chat_id = self.message['chat']['id']
+				last_chat_id = str(self.message['chat']['id'])
 
 				self.process_commands()
 
@@ -68,7 +68,7 @@ class Worker(object):
 
 
 	def process_message(self):
-		last_chat_id = self.message['chat']['id']
+		last_chat_id = str(self.message['chat']['id'])
 		last_message_id = self.message['message_id']
 
 		if 'photo' in self.message:
@@ -85,7 +85,7 @@ class Worker(object):
 					if game == "*Default*":
 						self.add_default_avatar(file_id)
 						text = "Стандартный аватар установлен"
-						sself.bot.send_message(last_chat_id, text, last_message_id)
+						self.bot.send_message(last_chat_id, text, last_message_id)
 					else:
 						self.add_recrod(PlatinumRecord(username, game, file_id))
 						self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
@@ -100,7 +100,7 @@ class Worker(object):
 					self.bot.send_message(last_chat_id, random.choice(answers['text']), last_message_id)
 
 	def process_commands(self):
-		chat_id = self.message['chat']['id']
+		chat_id = str(self.message['chat']['id'])
 
 		if 'text' in self.message:
 			last_message_text = self.message.get('text')
@@ -115,19 +115,20 @@ class Worker(object):
 
 
 	def add_recrod(self, record):
-		chat_id = self.message['chat']['id']
-		if chat_id in self.platinum:
-			try:
-				position = self.platinum[chat_id]['queue'].index(record)
-				self.platinum[chat_id]['queue'][position].photo_id = record.photo_id
-			except ValueError:
-				self.platinum[chat_id]['queue'].append(record)
-		else:
+		chat_id = str(self.message['chat']['id'])
+		try:
+			position = self.platinum[chat_id]['queue'].index(record)
+			self.platinum[chat_id]['queue'][position].photo_id = record.photo_id
+		except KeyError:
 			self.platinum[chat_id]['queue'] = deque()
 			self.platinum[chat_id]['queue'].append(record)
+		except ValueError:
+			self.platinum[chat_id]['queue'].append(record)
+
 
 	def add_default_avatar(self, file_id):
-		chat_id = self.message['chat']['id']
+		chat_id = str(self.message['chat']['id'])
+
 		self.platinum[chat_id]['default'] = file_id
 	
 	def get_game_name(self, text, entity):
@@ -193,11 +194,13 @@ class Worker(object):
 
 
 	def start_command(self):
-		chat_id = self.message['chat']['id']
+		chat_id = str(self.message['chat']['id'])
 
 		if not chat_id in self.where_run:
 			self.where_run.append(chat_id)
+			self.platinum[chat_id] = dict()
 			self.bot.send_message(chat_id, "Да начнётся охота!")
+
 
 	def help_command(self):
 		text = """Для добавления фото в очередь нужно отправить в чат фото с комментарием следующего вида:
@@ -222,7 +225,7 @@ class Worker(object):
 		return self.bot.send_message(chat_id, text, reply_to_message_id)
 
 	def showqueue_command(self):
-		chat_id = self.message['chat']['id']
+		chat_id = str(self.message['chat']['id'])
 		reply_to_message_id = self.message['message_id']
 
 		text = "Очередь платин:\n"
@@ -233,7 +236,7 @@ class Worker(object):
 		return self.bot.send_message(chat_id, text+text_record, reply_to_message_id)
 
 	def deletegame_command(self):
-		chat_id = self.message['chat']['id']
+		chat_id = str(self.message['chat']['id'])
 		reply_to_message_id = self.message['message_id']
 		username = self.message['from']['username']
 
