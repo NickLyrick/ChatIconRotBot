@@ -4,7 +4,7 @@ import json
 
 from os import environ
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from bot import BotHandler
 from answers import answers 
@@ -30,15 +30,15 @@ class PlatinumRecord(object):
 class Worker(object):
 	"""docstring for Worker"""
 
-	def __init__(self, bot, hour):
+	def __init__(self, bot, date, delta):
 		super(Worker, self).__init__()
 		self.bot = bot
 		self.platinum = dict()
 		self.where_run = list()
 		self.offset = 0
 		self.update_id = 0
-		self.hour = hour
-		self.can_update_ava = True
+		self.upd_date = date
+		self.delta = delta
 		self.commands = {'/help': self.help_command, '/start': self.start_command,
 						'/showqueue': self.showqueue_command,
 						'/deletegame': self.deletegame_command}
@@ -48,7 +48,6 @@ class Worker(object):
 			self.bot.get_updates(self.offset)
 
 			last_update = self.bot.get_last_update()
-			print(last_update)
 
 			self.update_id = last_update['update_id']
 			if 'message' in last_update:
@@ -62,13 +61,10 @@ class Worker(object):
 
 			self.offset = self.update_id
 
-			now = datetime.now(timezone.utc).time()
-			if (now.hour == self.hour) and self.can_update_ava:
+			now = datetime.now(timezone.utc)
+			if now == self.upd_date:
 				self.change_avatar()
-				self.can_update_ava = False
-			else:
-				if now.hour - self.hour == 1:
-					self.can_update_ava = True
+				sefl.upd_date = now + self.delta
 
 
 
@@ -241,14 +237,23 @@ class Worker(object):
 			text = "В данном чате ещё нет трофеев для удаления!"
 
 		return self.bot.send_message(chat_id, text, reply_to_message_id)
-		
+
+def get_data(data, hour):
+	day, month, year = map(int, data.split('.'))
+
+	return datetime(day=day, month=month, 
+					year=year, hour=hour,
+					tzinfo=timezone.utc)
 def main():
 	with open('config.json') as cfg:
 		config = json.load(cfg)
 
+	date = get_date(config['date'], config['hour'])
+	delta = timedelta(days=int(config['delta']))
+
 	token = environ.get('TOKEN')
 	bot = BotHandler(token)
-	worker = Worker(bot, int(config['update_avatar_hour']))
+	worker = Worker(bot, date, delta)
 	print("{}".format(bot.api_url))
 
 	worker.start()
