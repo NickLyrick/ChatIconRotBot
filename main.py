@@ -82,9 +82,12 @@ class Worker(object):
 					file_id = photo_sizes[-1]['file_id']
 					username = self.message['from']['username']
 					game = self.get_game_name(self.message['caption'], self.message['caption_entities'][0])
-					
-					self.add_recrod(PlatinumRecord(username, game, file_id))
-					self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
+
+					if game == "*Default*":
+						self.add_default_avatar(file_id)
+					else:
+						self.add_recrod(PlatinumRecord(username, game, file_id))
+						self.bot.send_message(last_chat_id, random.choice(answers['photo']), last_message_id)
 
 		if 'text' in self.message:
 			last_message_text = self.message.get('text')
@@ -114,13 +117,17 @@ class Worker(object):
 		chat_id = self.message['chat']['id']
 		if chat_id in self.platinum:
 			try:
-				position = self.platinum[chat_id].index(record)
-				self.platinum[chat_id][position].photo_id = record.photo_id
+				position = self.platinum[chat_id]['queue'].index(record)
+				self.platinum[chat_id]['queue'][position].photo_id = record.photo_id
 			except ValueError:
-				self.platinum[chat_id].append(record)
+				self.platinum[chat_id]['queue'].append(record)
 		else:
-			self.platinum[chat_id] = deque()
-			self.platinum[chat_id].append(record)
+			self.platinum[chat_id]['queue'] = deque()
+			self.platinum[chat_id]['queue'].append(record)
+
+	def add_default_avatar(self, file_id):
+		chat_id = self.message['chat']['id']
+		self.platinum[chat_id]['default'] = file_id
 	
 	def get_game_name(self, text, entity):
 		offset_mention = int(entity['offset'])
@@ -164,18 +171,21 @@ class Worker(object):
 	    return resp.content
 
 	def change_avatar(self):
-
 		for chat_id in self.platinum.keys():
 			try:
-				record = self.platinum[chat_id].popleft()
+				record = self.platinum[chat_id]['queue'].popleft()
+				file_id = record.photo_id
+				text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
 			except IndexError:
-				continue
+				file_id = self.platinum[chat_id].get('default', None)
+				if file_id is None:
+					continue
+				text = "Новых платин нет. Ставлю стандартный аватар :("
 
-			photo_url = self.bot.get_file_url(record.photo_id)
+			photo_url = self.bot.get_file_url(file_id)
 			photo = self.download_file(photo_url)
 			self.bot.set_chat_photo(chat_id, photo)
 
-			text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
 			self.bot.send_message(chat_id, text)
 
 		return True
@@ -215,7 +225,8 @@ class Worker(object):
 		reply_to_message_id = self.message['message_id']
 
 		text = "Очередь платин:\n"
-		platinum_chat = self.platinum.get(chat_id, deque())
+		platinum_chat_dict = self.platinum.get(chat_id, dict())
+		platinum_chat = platinum_chat_dict.get('queue', deque())
 		text_record = "\n".join(str(record) for record in platinum_chat)
 
 		return self.bot.send_message(chat_id, text+text_record, reply_to_message_id)
@@ -225,11 +236,12 @@ class Worker(object):
 		reply_to_message_id = self.message['message_id']
 		username = self.message['from']['username']
 
-		platinum_chat = self.platinum.get(chat_id, deque())
+		platinum_chat_dict = self.platinum.get(chat_id, dict())
+		platinum_chat = platinum_chat_dict.get('queue', deque())
 		records_user = [record for record in platinum_chat if record.hunter == username]
 
 		try:
-			self.platinum[chat_id].remove(records_user[-1])
+			self.platinum[chat_id]['queue'].remove(records_user[-1])
 			text = "Платина в игре {} игрока {} успешно удалена".format(records_user[-1].game, username)
 		except IndexError:
 			text = "Удалять у {} нечего. Поднажми!".format(username)
