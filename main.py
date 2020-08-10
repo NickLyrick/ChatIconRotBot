@@ -271,7 +271,8 @@ class Worker(object):
 		cursor = self.conn.cursor()
 		platinum_chat = [ PlatinumRecord(*row) for row in cursor.execute('''SELECT hunter, game, photo_id 
 																			FROM platinum 
-																			WHERE chat_id=?''', (chat_id,))]
+																			WHERE chat_id=? AND hunter!=? AND game!=?''', 
+																			(chat_id, "*Default*", "*Default*"))]
 
 		text_record = "\n".join(str(record) for record in platinum_chat)
 
