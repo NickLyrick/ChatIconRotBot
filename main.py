@@ -2,6 +2,8 @@ import requests
 import random
 import json
 
+import sqlite3
+
 from collections import deque
 from datetime import datetime, timezone, timedelta
 
@@ -41,6 +43,8 @@ class Worker(object):
 		self.commands = {'/help': self.help_command, '/start': self.start_command,
 						'/showqueue': self.showqueue_command,
 						'/deletegame': self.deletegame_command}
+
+		self.conn = sqlite3.connect('platinum.db')
 	
 	def start(self):
 		while True:
@@ -116,20 +120,40 @@ class Worker(object):
 
 	def add_recrod(self, record):
 		chat_id = str(self.message['chat']['id'])
-		try:
-			position = self.platinum[chat_id]['queue'].index(record)
-			self.platinum[chat_id]['queue'][position].photo_id = record.photo_id
-		except KeyError:
-			self.platinum[chat_id]['queue'] = deque()
-			self.platinum[chat_id]['queue'].append(record)
-		except ValueError:
-			self.platinum[chat_id]['queue'].append(record)
+
+		cursor = self.conn.cursor()
+
+		cursor.execute("SELECT * FROM platinum WHERE chat_id=? AND hunter=? AND game=?", 
+						(chat_id, record.hunter, record.game))
+		if cursor.fetchone() is None:
+			cursor.execute("INSERT INTO platinum VALUES (?, ?, ?, ?)", 
+							(chat_id, record.hunter, record.game, record.photo_id))
+
+		else:
+			cursor.execute("UPDATE platinum SET photo_id=? WHERE chat_id=? AND hunter=? AND game=?",
+				(record.photo_id, chat_id, record.hunter, record.game))
+		
+		self.conn.commit()
 
 
 	def add_default_avatar(self, file_id):
 		chat_id = str(self.message['chat']['id'])
 
-		self.platinum[chat_id]['default'] = file_id
+		cursor = self.conn.cursor()
+
+		cursor.execute("SELECT * FROM platinum WHERE chat_id=? AND hunter=? AND game=?", 
+				(chat_id, "*Default*", "*Default*"))
+
+		if cursor.fetchone() is None:
+			cursor.execute("INSERT INTO platinum VALUES (?, ?, ?, ?)", 
+				(chat_id, "*Default*", "*Default*", file_id))
+		else:
+			cursor.execute("UPDATE platinum SET photo_id=? WHERE chat_id=? AND hunter=? AND game=?",
+				(file_id, chat_id, "*Default*", "*Default*"))
+
+		self.conn.commit()
+			
+
 	
 	def get_game_name(self, text, entity):
 		offset_mention = int(entity['offset'])
@@ -173,22 +197,32 @@ class Worker(object):
 	    return resp.content
 
 	def change_avatar(self):
-		for chat_id in self.platinum.keys():
-			try:
-				record = self.platinum[chat_id]['queue'].popleft()
+		cursor = self.conn.cursor()
+		chat_ids = set(row[0] for row in cursor.execute("SELECT chat_id FROM platinum"))
+
+		for chat_id in chat_ids:
+			cursor.execute("SELECT hunter, game, photo_id FROM platinum WHERE chat_id=?", (chat_id,))
+			if cursor.fetchone() is None:
+				continue
+			else:
+				record = PlatinumRecord(*cursor.fetchone())
+
+				if record.hunter == "*Default*" and record.game == "*Default*":
+					text = "Новых платин нет. Ставлю стандартный аватар :("
+				else:
+					text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
+					cursor.execute("DELETE FROM platinum WHERE chat_id=? AND hunter=? AND game=?",
+									(chat_id, record.hunter, record.game))
+
 				file_id = record.photo_id
-				text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
-			except IndexError:
-				file_id = self.platinum[chat_id].get('default', None)
-				if file_id is None:
-					continue
-				text = "Новых платин нет. Ставлю стандартный аватар :("
 
 			photo_url = self.bot.get_file_url(file_id)
 			photo = self.download_file(photo_url)
 			self.bot.set_chat_photo(chat_id, photo)
 
 			self.bot.send_message(chat_id, text)
+
+		self.conn.commit()
 
 		return True
 
@@ -198,7 +232,6 @@ class Worker(object):
 
 		if not chat_id in self.where_run:
 			self.where_run.append(chat_id)
-			self.platinum[chat_id] = dict()
 			self.bot.send_message(chat_id, "Да начнётся охота!")
 
 
@@ -229,8 +262,11 @@ class Worker(object):
 		reply_to_message_id = self.message['message_id']
 
 		text = "Очередь платин:\n"
-		platinum_chat_dict = self.platinum.get(chat_id, dict())
-		platinum_chat = platinum_chat_dict.get('queue', deque())
+		cursor = self.conn.cursor()
+		platinum_chat = [ PlatinumRecord(*row) for row in cursor.execute('''SELECT hunter, game, photo_id 
+																			FROM platinum 
+																			WHERE chat_id=?''', (chat_id,))]
+
 		text_record = "\n".join(str(record) for record in platinum_chat)
 
 		return self.bot.send_message(chat_id, text+text_record, reply_to_message_id)
@@ -240,17 +276,22 @@ class Worker(object):
 		reply_to_message_id = self.message['message_id']
 		username = self.message['from']['username']
 
-		platinum_chat_dict = self.platinum.get(chat_id, dict())
-		platinum_chat = platinum_chat_dict.get('queue', deque())
-		records_user = [record for record in platinum_chat if record.hunter == username]
+		cursor = self.conn.cursor()
+		records_user =  [PlatinumRecord(*row) for row in cursor.execute('''SELECT hunter, game, photo_id 
+																			FROM platinum 
+																			WHERE chat_id=? AND hunter=?''',
+																		(chat_id, username))]
 
-		try:
-			self.platinum[chat_id]['queue'].remove(records_user[-1])
-			text = "Платина в игре {} игрока {} успешно удалена".format(records_user[-1].game, username)
-		except IndexError:
+		if len(records_user) == 0:
 			text = "Удалять у {} нечего. Поднажми!".format(username)
-		except KeyError:
-			text = "В данном чате ещё нет трофеев для удаления!"
+		else:
+			record = records_user[-1]
+			cursor.execute('''DELETE FROM platinum 
+							WHERE chat_id=? AND hunter=? AND game=?''',
+							(chat_id, record.hunter, record.game))
+			text = "Платина в игре {} игрока {} успешно удалена".format(record.game, record.hunter)
+
+			self.conn.commit()
 
 		return self.bot.send_message(chat_id, text, reply_to_message_id)
 
