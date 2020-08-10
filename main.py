@@ -201,18 +201,24 @@ class Worker(object):
 		chat_ids = set(row[0] for row in cursor.execute("SELECT chat_id FROM platinum"))
 
 		for chat_id in chat_ids:
-			cursor.execute("SELECT hunter, game, photo_id FROM platinum WHERE chat_id=?", (chat_id,))
-			if cursor.fetchone() is None:
-				continue
-			else:
-				record = PlatinumRecord(*cursor.fetchone())
-
-				if record.hunter == "*Default*" and record.game == "*Default*":
-					text = "Новых платин нет. Ставлю стандартный аватар :("
+			records = [PlatinumRecord(*row) for row in cursor.execute('''SELECT hunter, game, photo_id 
+																		FROM platinum 
+																		WHERE chat_id=? AND hunter!=?''', (chat_id, "*Default*",))]
+			if len(records) == 0:
+				cursor.execute('''SELECT photo_id 
+								FROM platinum 
+								WHERE chat_id=? AND hunter=? AND game=?''', (chat_id, "*Default*", "*Default*", ))
+				if cursor.fetchone() is None:
+					continue
 				else:
-					text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
-					cursor.execute("DELETE FROM platinum WHERE chat_id=? AND hunter=? AND game=?",
-									(chat_id, record.hunter, record.game))
+					text = "Новых платин нет. Ставлю стандартный аватар :("
+					file_id = cursor.fetchone()[0]
+			else:
+				record = records[0]
+
+				text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter, record.game)
+				cursor.execute("DELETE FROM platinum WHERE chat_id=? AND hunter=? AND game=?",
+								(chat_id, record.hunter, record.game))
 
 				file_id = record.photo_id
 
