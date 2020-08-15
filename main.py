@@ -1,6 +1,7 @@
 #! /bin/env/python
 
 """ Main script Bot  """
+import sys
 import json
 import random
 import sqlite3
@@ -321,4 +322,4 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        exit()
+        sys.exit()
