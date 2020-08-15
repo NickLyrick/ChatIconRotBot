@@ -16,11 +16,11 @@ class BotHandler:
         return result_json
 
     def get_me(self):
-    	method = 'getMe'
-    	params = {}
-    	resp = requests.post(self.api_url + method, params)
-    	result_json = resp.json()['result']
-    	return result_json
+        method = 'getMe'
+        params = {}
+        resp = requests.post(self.api_url + method, params)
+        result_json = resp.json()['result']
+        return result_json
 
     def send_message(self, chat_id, text, reply_to_message_id=None):
         params = {'chat_id': chat_id, 'text': text, 'reply_to_message_id': reply_to_message_id}
@@ -48,12 +48,12 @@ class BotHandler:
         return resp.json()
 
     def get_file(self, file_id):
-    	method = 'getFile'
-    	params = {'file_id': file_id}
-    	
-    	resp = requests.post(self.api_url + method, params)
-    	result_json = resp.json()['result']
-    	return result_json
+        method = 'getFile'
+        params = {'file_id': file_id}
+
+        resp = requests.post(self.api_url + method, params)
+        result_json = resp.json()['result']
+        return result_json
 
     def get_file_url(self, file_id):
         file = self.get_file(file_id)
@@ -69,5 +69,3 @@ class BotHandler:
         resp = requests.post(self.api_url + method, params)
         result_json = resp.json()['result']
         return result_json
-
-        
