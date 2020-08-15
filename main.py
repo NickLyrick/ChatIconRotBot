@@ -14,8 +14,8 @@ from bot import BotHandler
 from answers import answers
 
 
-class PlatinumRecord(object):
-    """docstring for PlatinumRecord"""
+class PlatinumRecord:
+    """PlatinumRecord is class for record of platinum"""
 
     def __init__(self, hunter, game, photo_id):
         super(PlatinumRecord, self).__init__()
@@ -33,8 +33,8 @@ class PlatinumRecord(object):
         return (self.hunter == other.hunter) and (self.game == other.game)
 
 
-class Worker(object):
-    """docstring for Worker"""
+class Worker:
+    """Worker is class for run bot"""
 
     def __init__(self, bot, date, delta):
         super(Worker, self).__init__()
