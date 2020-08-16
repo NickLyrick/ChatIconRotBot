@@ -66,6 +66,23 @@ class BotHandler:
 
         resp = requests.post(self.api_url + method, params)
 
+        result_json = resp.json()['result']
+        return result_json
+
+    def get_chat_admins(self, chat_id):
+        method = 'getChatAdministrators'
+        params = {'chat_id': chat_id}
+
         resp = requests.post(self.api_url + method, params)
         result_json = resp.json()['result']
         return result_json
+
+    def send_photo(self, chat_id, photo, caption, reply_to_message_id):
+        method = 'sendPhoto'
+        params = {'chat_id': chat_id,
+                  'photo': photo,
+                  'caption': caption,
+                  'reply_to_message_id': reply_to_message_id}
+
+        resp = requests.post(self.api_url + method, params)
+        return resp
