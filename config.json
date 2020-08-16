@@ -1,5 +1,3 @@
 {
-	"date": "8.08.2020",
-	"hour": "19",
-	"delta": "3"
+	"API_TOKEN": <Telegram Bot Api Token>
 }
