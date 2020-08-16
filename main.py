@@ -13,6 +13,9 @@ import requests
 from bot import BotHandler
 from answers import answers
 
+def download_file(url):
+    resp = requests.get(url)
+    return resp.content
 
 class PlatinumRecord:
     """PlatinumRecord is class for record of platinum"""
@@ -36,22 +39,26 @@ class PlatinumRecord:
 class Worker:
     """Worker is class for run bot"""
 
-    def __init__(self, bot, date, delta):
+    def __init__(self, bot):
         super(Worker, self).__init__()
         self.bot = bot
         self.offset = 0
         self.update_id = 0
-        self.upd_date = date
-        self.delta = delta
         self.message = dict()
+        self.where_run = dict()
         self.commands = {'/help': self.help_command, '/start': self.start_command,
                          '/showqueue': self.showqueue_command,
-                         '/deletegame': self.deletegame_command}
+                         '/deletegame': self.deletegame_command,
+                         '/showsettings': self.showsettings_command}
+
+        self.keywords = {'*Date*': self.set_date_chat,
+                         '*Delta*': self.set_delta_chat}
 
         self.conn = sqlite3.connect(
             'platinum.db', detect_types=sqlite3.PARSE_DECLTYPES)
 
     def start(self):
+        self.get_where_run()
         while True:
             self.bot.get_updates(self.offset)
 
@@ -69,20 +76,40 @@ class Worker:
 
             self.offset = self.update_id
 
-            now = datetime.now(timezone.utc)
-            if now == self.upd_date:
-                self.change_avatar()
-                self.upd_date = now + self.delta
+            self.update_avatar()
+
+    def update_avatar(self):
+        now = datetime.now()
+
+        for chat_id in self.where_run.keys():
+            date = self.where_run[chat_id]['date']
+            if date.date() == now.date() and date.hour == now.hour and date.minute == now.minute:
+                self.change_avatar(chat_id)
+                delta = timedelta(days=int(self.where_run[chat_id]['delta']))
+                cursor = self.conn.cursor()
+                cursor.execute('''UPDATE chats
+                                  SET date=?
+                                  WHERE chat_id=?''',
+                               (date + delta, chat_id))
+                self.conn.commit()
+                self.where_run[chat_id]['date'] = date + delta
+
+
+    def get_where_run(self):
+        cursor = self.conn.cursor()
+        self.where_run = {chat_id:{'date':date, 'delta':delta}
+                          for chat_id, date, delta in cursor.execute("SELECT * FROM chats")}
 
     def process_message(self):
         last_chat_id = str(self.message['chat']['id'])
         last_message_id = self.message['message_id']
 
-        if 'photo' in self.message:
-            isBotWasMentioned = self.botWasMentioned(self.message.get('caption_entities', list()),
-                                                     self.message.get('caption'))
+        if self.update_id > self.offset:
+            if 'photo' in self.message:
+                caption_entities = self.message.get('caption_entities', list())
+                isBotWasMentioned = self.botWasMentioned(caption_entities,
+                                                         self.message.get('caption'))
 
-            if self.update_id > self.offset:
                 if isBotWasMentioned:
                     photo_sizes = self.message['photo']
                     file_id = photo_sizes[-1]['file_id']
@@ -91,25 +118,95 @@ class Worker:
                                               self.message['caption_entities'][0])
 
                     if game == "*Default*":
-                        username = "*Default*"
-                        text = "Стандартный аватар установлен"
+                        user_id = self.message['from']['id']
+                        if self.check_user_permissions(last_chat_id, user_id):
+                            username = "*Default*"
+                            text = "Стандартный аватар установлен"
+                        else:
+                            username = None
+                            text = "У вас нет прав для изменения информации группы!"
                     else:
                         text = random.choice(answers['photo'])
 
-                    record = PlatinumRecord(username, game, file_id)
-                    self.add_recrod(record)
+                    if not username is None:
+                        record = PlatinumRecord(username, game, file_id)
+                        self.add_recrod(record)
                     self.bot.send_message(last_chat_id, text, last_message_id)
 
-        if 'text' in self.message:
-            last_message_text = self.message.get('text')
+            if 'text' in self.message:
+                last_message_text = self.message.get('text')
+                entities = self.message.get('entities', list())
+                isBotWasMentioned = self.botWasMentioned(entities, last_message_text)
+                username = self.message['from']['username']
+                if isBotWasMentioned and username != self.bot.name:
+                    self.process_keywords(last_message_text)
 
-            isBotWasMentioned = self.botWasMentioned(self.message.get('entities', list()),
-                                                     last_message_text)
+    def set_delta_chat(self, delta_str):
+        chat_id = str(self.message['chat']['id'])
+        user_id = self.message['from']['id']
+        if self.check_user_permissions(chat_id, user_id):
+            try:
+                delta = int(delta_str)
+                if delta > 0:
+                    cursor = self.conn.cursor()
+                    cursor.execute("UPDATE chats SET delta=? WHERE chat_id=?", (delta, chat_id))
+                    self.conn.commit()
+                    self.where_run[chat_id]['delta'] = delta
+                    text = "Промежуток между сменами фото чата успешно установлен."
+                else:
+                    text = "Промежуток между сменами фото должен быть больше нуля и целым числом"
+            except ValueError:
+                text = "Промежуток задан не верно. Пример: @{} *Delta* 3".format(self.bot.name)
+        else:
+            text = "У вас нет прав для изменения информации группы!"
 
-            if self.update_id > self.offset:
-                if isBotWasMentioned:
-                    self.bot.send_message(last_chat_id, random.choice(answers['text']),
-                                          last_message_id)
+        self.bot.send_message(chat_id, text, self.message['message_id'])
+
+    def set_date_chat(self, date_str):
+        chat_id = str(self.message['chat']['id'])
+        user_id = self.message['from']['id']
+        if self.check_user_permissions(chat_id, user_id):
+            try:
+                date = datetime.strptime(date_str, "%d.%m.%Y %H:%M")
+                if date > datetime.now():
+                    cursor = self.conn.cursor()
+                    cursor.execute("UPDATE chats SET date=? WHERE chat_id=?", (date, chat_id))
+                    self.conn.commit()
+                    self.where_run[chat_id]['date'] = date
+                    text = "Ближайшая дата смены фото чата успешно установлена."
+                else:
+                    text = "Ближайшая дата смены оказалась в прошлом. Я не могу изменить прошлое!"
+            except ValueError:
+                text = "Дата введена неверна. Пример: " \
+                       "@{} *Date* 22.07.1941 04:00".format(self.bot.name)
+        else:
+            text = "У вас нет прав для изменения информации группы!"
+
+        self.bot.send_message(chat_id, text, self.message['message_id'])
+
+    def check_user_permissions(self, chat_id, user_id):
+        admins = self.bot.get_chat_admins(chat_id)
+        for admin in admins:
+            if admin['user']['id'] == user_id:
+                if admin['status'] == 'creator':
+                    return True
+                else:
+                    if admin['can_change_info'] == 'true':
+                        return True
+                    else:
+                        return False
+
+    def process_keywords(self, text):
+        words = text.split()
+
+        if len(words) >= 2:
+            if words[1] in self.keywords:
+                self.keywords[words[1]](" ".join(words[2:]))
+        else:
+            self.bot.send_message(str(self.message['chat']['id']),
+                                  random.choice(answers['text']),
+                                  self.message['message_id'])
+
 
     def process_commands(self):
         chat_id = str(self.message['chat']['id'])
@@ -138,7 +235,9 @@ class Worker:
                            (chat_id, record.hunter, record.game, record.photo_id))
 
         else:
-            cursor.execute("UPDATE platinum SET photo_id=? WHERE chat_id=? AND hunter=? AND game=?",
+            cursor.execute('''UPDATE platinum
+                              SET photo_id=?
+                              WHERE chat_id=? AND hunter=? AND game=?''',
                            (record.photo_id, chat_id, record.hunter, record.game))
 
         self.conn.commit()
@@ -179,57 +278,60 @@ class Worker:
                     return text
         return ""
 
-    def download_file(self, url):
-        resp = requests.get(url)
-        return resp.content
-
-    def change_avatar(self):
+    def change_avatar(self, chat_id):
         cursor = self.conn.cursor()
-        chat_ids = set(row[0] for row in cursor.execute(
-            "SELECT chat_id FROM platinum"))
 
-        for chat_id in chat_ids:
-            rows = cursor.execute('''SELECT hunter, game, photo_id FROM platinum
-                                  WHERE chat_id=? AND hunter!=?''', (chat_id, "*Default*",))
-            records = [PlatinumRecord(*row) for row in rows]
+        rows = cursor.execute('''SELECT hunter, game, photo_id
+                                 FROM platinum
+                                 WHERE chat_id=? AND hunter!=?''',
+                              (chat_id, "*Default*",))
 
-            if len(records) == 0:
-                cursor.execute('''SELECT photo_id
-                                FROM platinum
-                                WHERE chat_id=? AND hunter=? AND game=?''',
-                               (chat_id, "*Default*", "*Default*", ))
+        records = [PlatinumRecord(*row) for row in rows]
 
-                if not cursor.fetchone() is None:
-                    text = "Новых платин нет. Ставлю стандартный аватар :("
-                    file_id = cursor.fetchone()[0]
-                else:
-                    continue
+        if len(records) == 0:
+            cursor.execute('''SELECT photo_id
+                              FROM platinum
+                              WHERE chat_id=? AND hunter=? AND game=?''',
+                           (chat_id, "*Default*", "*Default*", ))
 
+            if not cursor.fetchone() is None:
+                text = "Новых платин нет. Ставлю стандартный аватар :("
+                file_id = cursor.fetchone()[0]
             else:
-                record = records[0]
+                text = "Стандартный аватар не задан. Оставляю всё как есть."
+                file_id = None
 
-                text = "Поздравляем @{} с платиной в игре \"{}\" !".format(
-                    record.hunter, record.game)
-                cursor.execute("DELETE FROM platinum WHERE chat_id=? AND hunter=? AND game=?",
-                               (chat_id, record.hunter, record.game))
+        else:
+            record = records[0]
 
-                file_id = record.photo_id
+            text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter,
+                                                                       record.game)
+            cursor.execute('''DELETE FROM platinum
+                              WHERE chat_id=? AND hunter=? AND game=?''',
+                           (chat_id, record.hunter, record.game))
+            self.conn.commit()
 
+            file_id = record.photo_id
+
+        if not file_id is None:
             photo_url = self.bot.get_file_url(file_id)
-            photo = self.download_file(photo_url)
+            photo = download_file(photo_url)
             self.bot.set_chat_photo(chat_id, photo)
 
-            self.bot.send_message(chat_id, text)
-
-        self.conn.commit()
+        self.bot.send_message(chat_id, text)
 
         return True
 
     def start_command(self):
         chat_id = str(self.message['chat']['id'])
 
-        if not chat_id in self.where_run:
-            self.where_run.append(chat_id)
+        if chat_id not in self.where_run:
+            cursor = self.conn.cursor()
+            date = datetime.now(timezone.utc)
+            delta = 1
+            cursor.execute("INSERT INTO chats VALUES(?,?,?)", (chat_id, date, delta))
+            self.conn.commit()
+            self.where_run[chat_id] = {'date': date, 'delta': delta}
             self.bot.send_message(chat_id, "Да начнётся охота!")
 
     def help_command(self):
@@ -252,7 +354,7 @@ class Worker:
         chat_id = self.message['chat']['id']
         reply_to_message_id = self.message['message_id']
 
-        return self.bot.send_message(chat_id, text, reply_to_message_id)
+        self.bot.send_message(chat_id, text, reply_to_message_id)
 
     def showqueue_command(self):
         chat_id = str(self.message['chat']['id'])
@@ -268,7 +370,7 @@ class Worker:
 
         text_record = "\n".join(str(record) for record in platinum_chat)
 
-        return self.bot.send_message(chat_id, text+text_record, reply_to_message_id)
+        self.bot.send_message(chat_id, text+text_record, reply_to_message_id)
 
     def deletegame_command(self):
         chat_id = str(self.message['chat']['id'])
@@ -292,7 +394,29 @@ class Worker:
 
             self.conn.commit()
 
-        return self.bot.send_message(chat_id, text, reply_to_message_id)
+        self.bot.send_message(chat_id, text, reply_to_message_id)
+
+    def showsettings_command(self):
+        chat_id = str(self.message['chat']['id'])
+        reply_to_message_id = self.message['message_id']
+
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT date, delta FROM chats WHERE chat_id=?", (chat_id,))
+        date, delta = cursor.fetchone()
+        text = "Ближайшая дата смены: {}.\n" \
+               "Промежуток между сменами: {}д.".format(date.strftime("%d.%m.%Y %H:%M"), delta)
+
+        cursor.execute('''SELECT photo_id
+                          FROM platinum
+                          WHERE chat_id=? AND hunter=?''',
+                       (chat_id, '*Default*'))
+        row = cursor.fetchone()
+        if not row is None:
+            photo_id = row[0]
+            self.bot.send_photo(chat_id, photo_id, text, reply_to_message_id)
+        else:
+            self.bot.send_message(chat_id, text, reply_to_message_id)
+
 
 
 def get_date(data, hour):
@@ -307,12 +431,9 @@ def main():
     with open('config.json') as cfg:
         config = json.load(cfg)
 
-    date = get_date(config['date'], config['hour'])
-    delta = timedelta(days=int(config['delta']))
-
     token = config['API_TOKEN']
     bot = BotHandler(token)
-    worker = Worker(bot, date, delta)
+    worker = Worker(bot)
     print("{}".format(bot.api_url))
 
     worker.start()
