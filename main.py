@@ -1,10 +1,15 @@
 #! /bin/env/python
 
 """ Main script Bot  """
+import os
 import sys
 import json
 import random
-import sqlite3
+import psycopg2
+from psycopg2 import sql
+
+DATABASE_URL = os.environ['DATABASE_URL']
+
 
 from datetime import datetime, timezone, timedelta
 
@@ -54,8 +59,7 @@ class Worker:
         self.keywords = {'*Date*': self.set_date_chat,
                          '*Delta*': self.set_delta_chat}
 
-        self.conn = sqlite3.connect(
-            'platinum.db', detect_types=sqlite3.PARSE_DECLTYPES)
+        self.conn = psycopg2.connect(DATABASE_URL, sslmode='require')
 
     def start(self):
         self.get_where_run()
@@ -67,7 +71,7 @@ class Worker:
             self.update_id = last_update['update_id']
             if 'message' in last_update:
                 self.message = last_update['message']
-                last_chat_id = str(self.message['chat']['id'])
+                last_chat_id = self.message['chat']['id']
 
                 self.process_commands()
 
@@ -86,22 +90,24 @@ class Worker:
             if date.date() == now.date() and date.hour == now.hour and date.minute == now.minute:
                 self.change_avatar(chat_id)
                 delta = timedelta(days=int(self.where_run[chat_id]['delta']))
-                cursor = self.conn.cursor()
-                cursor.execute('''UPDATE chats
-                                  SET date=?
-                                  WHERE chat_id=?''',
-                               (date + delta, chat_id))
+                with self.conn.cursor() as cursor:
+                    cursor.execute('''UPDATE chats
+                                      SET date=%s
+                                      WHERE chat_id=%s''',
+                                   (date + delta, chat_id))
                 self.conn.commit()
                 self.where_run[chat_id]['date'] = date + delta
 
 
     def get_where_run(self):
-        cursor = self.conn.cursor()
-        self.where_run = {chat_id:{'date':date, 'delta':delta}
-                          for chat_id, date, delta in cursor.execute("SELECT * FROM chats")}
+        with self.conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM chats")
+            self.where_run = {chat_id:{'date':date, 'delta':delta}
+                              for chat_id, date, delta in cursor.fetchall()}
+            print(self.where_run)
 
     def process_message(self):
-        last_chat_id = str(self.message['chat']['id'])
+        last_chat_id = self.message['chat']['id']
         last_message_id = self.message['message_id']
 
         if self.update_id > self.offset:
@@ -142,14 +148,15 @@ class Worker:
                     self.process_keywords(last_message_text)
 
     def set_delta_chat(self, delta_str):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
         user_id = self.message['from']['id']
         if self.check_user_permissions(chat_id, user_id):
             try:
                 delta = int(delta_str)
                 if delta > 0:
-                    cursor = self.conn.cursor()
-                    cursor.execute("UPDATE chats SET delta=? WHERE chat_id=?", (delta, chat_id))
+                    with self.conn.cursor() as cursor:
+                        cursor.execute("UPDATE chats SET delta=%s WHERE chat_id=%s",
+                            (delta, chat_id))
                     self.conn.commit()
                     self.where_run[chat_id]['delta'] = delta
                     text = "Промежуток между сменами фото чата успешно установлен."
@@ -163,14 +170,14 @@ class Worker:
         self.bot.send_message(chat_id, text, self.message['message_id'])
 
     def set_date_chat(self, date_str):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
         user_id = self.message['from']['id']
         if self.check_user_permissions(chat_id, user_id):
             try:
                 date = datetime.strptime(date_str, "%d.%m.%Y %H:%M")
                 if date > datetime.now():
                     cursor = self.conn.cursor()
-                    cursor.execute("UPDATE chats SET date=? WHERE chat_id=?", (date, chat_id))
+                    cursor.execute("UPDATE chats SET date=%s WHERE chat_id=%s", (date, chat_id))
                     self.conn.commit()
                     self.where_run[chat_id]['date'] = date
                     text = "Ближайшая дата смены фото чата успешно установлена."
@@ -209,7 +216,7 @@ class Worker:
 
 
     def process_commands(self):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
 
         if 'text' in self.message:
             last_message_text = self.message.get('text')
@@ -224,20 +231,20 @@ class Worker:
                         self.commands[command]()
 
     def add_recrod(self, record):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
 
         cursor = self.conn.cursor()
 
-        cursor.execute("SELECT * FROM platinum WHERE chat_id=? AND hunter=? AND game=?",
+        cursor.execute("SELECT * FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s",
                        (chat_id, record.hunter, record.game))
         if cursor.fetchone() is None:
-            cursor.execute("INSERT INTO platinum VALUES (?, ?, ?, ?)",
+            cursor.execute("INSERT INTO platinum VALUES (%s, %s, %s, %s)",
                            (chat_id, record.hunter, record.game, record.photo_id))
 
         else:
             cursor.execute('''UPDATE platinum
-                              SET photo_id=?
-                              WHERE chat_id=? AND hunter=? AND game=?''',
+                              SET photo_id=%s
+                              WHERE chat_id=%s AND hunter=%s AND game=%s''',
                            (record.photo_id, chat_id, record.hunter, record.game))
 
         self.conn.commit()
@@ -281,17 +288,17 @@ class Worker:
     def change_avatar(self, chat_id):
         cursor = self.conn.cursor()
 
-        rows = cursor.execute('''SELECT hunter, game, photo_id
+        cursor.execute('''SELECT hunter, game, photo_id
                                  FROM platinum
-                                 WHERE chat_id=? AND hunter!=?''',
+                                 WHERE chat_id=%s AND hunter!=%s''',
                               (chat_id, "*Default*",))
 
-        records = [PlatinumRecord(*row) for row in rows]
+        records = [PlatinumRecord(*row) for row in cursor.fetchall()]
 
         if len(records) == 0:
             cursor.execute('''SELECT photo_id
                               FROM platinum
-                              WHERE chat_id=? AND hunter=? AND game=?''',
+                              WHERE chat_id=%s AND hunter=%s AND game=%s''',
                            (chat_id, "*Default*", "*Default*", ))
 
             if not cursor.fetchone() is None:
@@ -307,7 +314,7 @@ class Worker:
             text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter,
                                                                        record.game)
             cursor.execute('''DELETE FROM platinum
-                              WHERE chat_id=? AND hunter=? AND game=?''',
+                              WHERE chat_id=%s AND hunter=%s AND game=%s''',
                            (chat_id, record.hunter, record.game))
             self.conn.commit()
 
@@ -323,13 +330,13 @@ class Worker:
         return True
 
     def start_command(self):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
 
         if chat_id not in self.where_run:
             cursor = self.conn.cursor()
             date = datetime.now(timezone.utc)
             delta = 1
-            cursor.execute("INSERT INTO chats VALUES(?,?,?)", (chat_id, date, delta))
+            cursor.execute("INSERT INTO chats VALUES(%s,%s,%s)", (chat_id, date, delta))
             self.conn.commit()
             self.where_run[chat_id] = {'date': date, 'delta': delta}
             self.bot.send_message(chat_id, "Да начнётся охота!")
@@ -369,37 +376,37 @@ class Worker:
         self.bot.send_message(chat_id, text, reply_to_message_id)
 
     def showqueue_command(self):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
         reply_to_message_id = self.message['message_id']
 
         text = "Очередь платин:\n"
         cursor = self.conn.cursor()
-        rows = cursor.execute('''SELECT hunter, game, photo_id FROM platinum
-                                WHERE chat_id=? AND hunter!=? AND game!=?''',
+        cursor.execute('''SELECT hunter, game, photo_id FROM platinum
+                                WHERE chat_id=%s AND hunter!=%s AND game!=%s''',
                               (chat_id, "*Default*", "*Default*"))
 
-        platinum_chat = [PlatinumRecord(*row) for row in rows]
+        platinum_chat = [PlatinumRecord(*row) for row in cursor.fetchall()]
 
         text_record = "\n".join(str(record) for record in platinum_chat)
 
         self.bot.send_message(chat_id, text+text_record, reply_to_message_id)
 
     def deletegame_command(self):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
         reply_to_message_id = self.message['message_id']
         username = self.message['from']['username']
 
         cursor = self.conn.cursor()
-        rows = cursor.execute('''SELECT hunter, game, photo_id FROM platinum
-                                WHERE chat_id=? AND hunter=?''', (chat_id, username))
-        records_user = [PlatinumRecord(*row) for row in rows]
+        cursor.execute('''SELECT hunter, game, photo_id FROM platinum
+                                WHERE chat_id=%s AND hunter=%s''', (chat_id, username))
+        records_user = [PlatinumRecord(*row) for row in cursor.fetchall()]
 
         if len(records_user) == 0:
             text = "Удалять у {} нечего. Поднажми!".format(username)
         else:
             record = records_user[-1]
             cursor.execute('''DELETE FROM platinum
-                            WHERE chat_id=? AND hunter=? AND game=?''',
+                            WHERE chat_id=%s AND hunter=%s AND game=%s''',
                            (chat_id, record.hunter, record.game))
             text = "Платина в игре {} игрока {} успешно удалена".format(
                 record.game, record.hunter)
@@ -409,18 +416,18 @@ class Worker:
         self.bot.send_message(chat_id, text, reply_to_message_id)
 
     def showsettings_command(self):
-        chat_id = str(self.message['chat']['id'])
+        chat_id = self.message['chat']['id']
         reply_to_message_id = self.message['message_id']
 
         cursor = self.conn.cursor()
-        cursor.execute("SELECT date, delta FROM chats WHERE chat_id=?", (chat_id,))
+        cursor.execute("SELECT date, delta FROM chats WHERE chat_id=%s", (chat_id,))
         date, delta = cursor.fetchone()
         text = "Ближайшая дата смены: {}.\n" \
                "Промежуток между сменами: {}д.".format(date.strftime("%d.%m.%Y %H:%M"), delta)
 
         cursor.execute('''SELECT photo_id
                           FROM platinum
-                          WHERE chat_id=? AND hunter=?''',
+                          WHERE chat_id=%s AND hunter=%s''',
                        (chat_id, '*Default*'))
         row = cursor.fetchone()
         if not row is None:
@@ -440,10 +447,7 @@ def get_date(data, hour):
 
 
 def main():
-    with open('config.json') as cfg:
-        config = json.load(cfg)
-
-    token = config['API_TOKEN']
+    token = os.environ["TOKEN"]
     bot = BotHandler(token)
     worker = Worker(bot)
     print("{}".format(bot.api_url))
