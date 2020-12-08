@@ -1,0 +1,244 @@
+#! /bin/env/python
+
+""" Main script Bot  """
+
+import os
+import sys
+import random
+from datetime import datetime, timezone, timedelta
+
+import psycopg2
+from psycopg2 import sql
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.types import ContentType
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+from answers import answers, help_text
+
+DATABASE_URL = os.environ['DATABASE_URL']
+
+# Initialize bot and dispatcher
+bot = Bot(token=os.environ["TOKEN"])
+dp = Dispatcher(bot)
+
+where_run = dict()
+
+db = psycopg2.connect(DATABASE_URL, sslmode='require')
+
+bot_username=""
+
+scheduler = AsyncIOScheduler()
+
+class PlatinumRecord:
+    """PlatinumRecord is class for record of platinum"""
+
+    def __init__(self, hunter, game, photo_id):
+        super(PlatinumRecord, self).__init__()
+        self.hunter = hunter
+        self.game = game
+        self.photo_id = photo_id
+
+    def __str__(self):
+        return "{} {}".format(self.hunter, self.game)
+
+    def __repr__(self):
+        return "PlatinumRecord({}, {}, {})".format(self.hunter, self.game, self.photo_id)
+
+    def __eq__(self, other):
+        return (self.hunter == other.hunter) and (self.game == other.game)
+
+def add_job(chat_id, date):
+	scheduler.add_job(None, "date", run_date=date, id=str(chat_id), args=[chat_id])
+
+async def on_startup(dispatcher):
+	global bot_username
+	global where_run
+
+	bot_user = await bot.me
+	bot_username = bot_user.username
+	with db.cursor() as cursor:
+		cursor.execute("SELECT * FROM chats")
+		where_run = {chat_id:{'date':date, 'delta':delta}
+					 for chat_id, date, delta in cursor.fetchall()}
+
+async def check_permissions(message: types.Message):
+	member = await message.chat.get_member(message.from_user.id)
+
+	return member.can_change_info
+
+
+@dp.message_handler(commands=['start'])
+async def start(message: types.Message):
+	chat_id = message.chat.id
+
+	if chat_id not in where_run:
+		date = datetime.now(timezone.utc)
+		delta = 1
+		with db.cursor() as cursor:
+			cursor.execute("INSERT INTO chats VALUES(%s,%s,%s)", (chat_id, date, delta))
+		db.commit()
+		where_run[chat_id] = {'date': date, 'delta': delta}
+		await bot.send_message(chat_id, "Да начнётся охота!")
+
+@dp.message_handler(commands=['help'])
+async def help(message: types.Message):
+	await message.reply(help_text.format(bot_username))
+
+@dp.message_handler(commands=['showsettings'])
+async def showsettings(message: types.Message):
+	chat_id = message.chat.id
+
+	with db.cursor() as cursor:
+		cursor.execute("SELECT date, delta FROM chats WHERE chat_id=%s", (chat_id,))
+		date, delta = cursor.fetchone()
+
+		cursor.execute('''SELECT photo_id
+		                  FROM platinum
+		                  WHERE chat_id=%s AND hunter=%s''',
+		               (chat_id, '*Default*'))
+		row = cursor.fetchone()
+
+	text = "Ближайшая дата смены: {}.\n" \
+		"Промежуток между сменами: {}д.".format(date.strftime("%d.%m.%Y %H:%M"), delta)
+
+	if not row is None:
+	    photo_id = row[0]
+	    await message.reply_photo(photo=photo_id, caption=text)
+	else:
+	    await message.reply(text)
+
+@dp.message_handler(commands=['showqueue'])
+async def showqueue(message: types.Message):
+	chat_id = message.chat.id
+	text = "Очередь платин:\n"
+	with db.cursor() as cursor:
+	    cursor.execute('''SELECT hunter, game, photo_id FROM platinum
+	                      WHERE chat_id=%s AND hunter!=%s AND game!=%s''',
+	                      (chat_id, "*Default*", "*Default*"))
+
+	    platinum_chat = [PlatinumRecord(*row) for row in cursor.fetchall()]
+
+	text_record = "\n".join(str(record) for record in platinum_chat)
+
+	await message.reply(text+text_record)
+
+@dp.message_handler(commands=['deletegame'])
+async def deletegame(message: types.Message):
+	chat_id = message.chat.id
+	username = message.from_user.username
+
+	with db.cursor() as cursor:
+		cursor.execute('''SELECT hunter, game, photo_id FROM platinum
+		                        WHERE chat_id=%s AND hunter=%s''', (chat_id, username))
+		records_user = [PlatinumRecord(*row) for row in cursor.fetchall()]
+
+		if len(records_user) == 0:
+		    text = "Удалять у {} нечего. Поднажми!".format(username)
+		else:
+		    record = records_user[-1]
+		    cursor.execute('''DELETE FROM platinum
+		                    WHERE chat_id=%s AND hunter=%s AND game=%s''',
+		                   (chat_id, record.hunter, record.game))
+		    text = "Платина в игре {} игрока {} успешно удалена".format(
+		        record.game, record.hunter)
+
+		    db.commit()
+
+	await message.reply(text)
+
+@dp.message_handler(text_startswith="@{}".format(bot_username), content_types=ContentType.PHOTO)
+async def add_record(message: types.Message):
+	chat_id = message.chat.id
+	username = message.from_user.username
+
+	game = message.caption.replace("@{}".format(bot_username), "").strip()
+	file_id = message.photo[-1].file_id
+
+	if game == "*Default*":
+		if await check_permissions(message):
+			username = "*Default*"
+			text = "Стандартный аватар установлен"
+		else:
+			username = None
+			text = "У вас нет прав для изменения информации группы!"
+	else:
+		text = random.choice(answers['photo'])
+
+	if username is not None:
+		record = PlatinumRecord(username, game, file_id)
+		with db.cursor() as cursor:
+			cursor.execute("SELECT * FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s",
+	                       (chat_id, record.hunter, record.game))
+	        if cursor.fetchone() is None:
+	            cursor.execute("INSERT INTO platinum VALUES (%s, %s, %s, %s)",
+	                           (chat_id, record.hunter, record.game, record.photo_id))
+
+	        else:
+	            cursor.execute('''UPDATE platinum
+	                              SET photo_id=%s
+	                              WHERE chat_id=%s AND hunter=%s AND game=%s''',
+	                           (record.photo_id, chat_id, record.hunter, record.game))
+
+        db.commit()
+
+
+	await message.reply(text)
+
+
+
+@dp.message_handler(text_startswith="@{}".format(bot_username))
+async def reply_by_text(message: types.Message):
+	await message.reply(random.choice(answers['text']))
+
+
+@dp.message_handler(text_startswith="@{} *Delta*".format(bot_username))
+async def set_delta(message: types.Message):
+	chat_id = message.chat.id
+
+	if await check_permissions(message):
+		delta_str = message.text.replace("@{} *Delta*".format(bot_username), "").strip()
+		try:
+			delta = int(delta_str)
+			if delta > 0:
+				with db.cursor() as cursor:
+					cursor.execute("UPDATE chats SET delta=%s WHERE chat_id=%s",
+									(delta, chat_id))
+				db.commit()
+				self.where_run[chat_id]['delta'] = delta
+				text = "Промежуток между сменами фото чата успешно установлен."
+			else:
+				text = "Промежуток между сменами фото должен быть больше нуля и целым числом"
+		except ValueError:
+			text = "Промежуток задан не верно. Пример: @{} *Delta* 3".format(bot_username)
+	else:
+		text = "У вас нет прав для изменения информации группы!"
+
+	await message.reply(text)
+
+@dp.message_handler(text_startswith="@{} *Delta*".format(bot_username))
+async def set_date(message: types.Message):
+    chat_id = message.chat.id
+
+    if await check_permissions(message):
+    	date_str = message.text.replace("@{} *Delta*".format(bot_username), "").strip()
+        try:
+            date = datetime.strptime(date_str, "%d.%m.%Y %H:%M")
+            if date > datetime.now():
+                with db.cursor() as cursor:
+                	cursor.execute("UPDATE chats SET date=%s WHERE chat_id=%s", (date, chat_id))
+                db.commit()
+                where_run[chat_id]['date'] = date
+                text = "Ближайшая дата смены фото чата успешно установлена."
+            else:
+                text = "Ближайшая дата смены оказалась в прошлом. Я не могу изменить прошлое!"
+        except ValueError:
+            text = "Дата введена неверна. Пример: " \
+                   "@{} *Date* 22.07.1941 04:00".format(bot_username)
+    else:
+        text = "У вас нет прав для изменения информации группы!"
+
+    await message.reply(text)
+
+if __name__ == '__main__':
+	executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
