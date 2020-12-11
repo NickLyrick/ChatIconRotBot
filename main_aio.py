@@ -1,10 +1,10 @@
-#! /bin/env/python
-
 """ Main script Bot  """
 
 import os
 import sys
 import random
+import logging
+from pytz import utc
 from datetime import datetime, timezone, timedelta
 
 import psycopg2
@@ -18,6 +18,9 @@ from answers import answers, help_text
 
 DATABASE_URL = os.environ['DATABASE_URL']
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
 # Initialize bot and dispatcher
 bot = Bot(token=os.environ["TOKEN"])
 dp = Dispatcher(bot)
@@ -28,28 +31,94 @@ db = psycopg2.connect(DATABASE_URL, sslmode='require')
 
 bot_username=""
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone=utc)
 
 class PlatinumRecord:
-    """PlatinumRecord is class for record of platinum"""
+	"""PlatinumRecord is class for record of platinum"""
 
-    def __init__(self, hunter, game, photo_id):
-        super(PlatinumRecord, self).__init__()
-        self.hunter = hunter
-        self.game = game
-        self.photo_id = photo_id
+	def __init__(self, hunter, game, photo_id):
+		super(PlatinumRecord, self).__init__()
+		self.hunter = hunter
+		self.game = game
+		self.photo_id = photo_id
 
-    def __str__(self):
-        return "{} {}".format(self.hunter, self.game)
+	def __str__(self):
+		return "{} {}".format(self.hunter, self.game)
 
-    def __repr__(self):
-        return "PlatinumRecord({}, {}, {})".format(self.hunter, self.game, self.photo_id)
+	def __repr__(self):
+		return "PlatinumRecord({}, {}, {})".format(self.hunter, self.game, self.photo_id)
 
-    def __eq__(self, other):
-        return (self.hunter == other.hunter) and (self.game == other.game)
+	def __eq__(self, other):
+		return (self.hunter == other.hunter) and (self.game == other.game)
 
-def add_job(chat_id, date):
-	scheduler.add_job(None, "date", run_date=date, id=str(chat_id), args=[chat_id])
+async def change_avatar(chat_id):
+	with db.cursor() as cursor:
+		cursor.execute('''SELECT hunter, game, photo_id
+						  FROM platinum
+						  WHERE chat_id=%s AND hunter!=%s''',
+						  (chat_id, "*Default*",))
+
+		records = [PlatinumRecord(*row) for row in cursor.fetchall()]
+
+		if len(records) == 0:
+			cursor.execute('''SELECT photo_id
+							  FROM platinum
+							  WHERE chat_id=%s AND hunter=%s AND game=%s''',
+						   (chat_id, "*Default*", "*Default*", ))
+			row = cursor.fetchone()
+			if row is not None:
+				text = "Новых платин нет. Ставлю стандартный аватар :("
+				file_id = row[0]
+			else:
+				text = "Стандартный аватар не задан. Оставляю всё как есть."
+				file_id = None
+
+		else:
+			record = records[0]
+
+			text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter,
+																	   record.game)
+			cursor.execute('''DELETE FROM platinum
+							  WHERE chat_id=%s AND hunter=%s AND game=%s''',
+						   (chat_id, record.hunter, record.game))
+			db.commit()
+
+			file_id = record.photo_id
+
+	if file_id is not None:
+		photo = await bot.download_file_by_id(file_id=file_id) 
+		await bot.set_chat_photo(chat_id, photo)
+
+	await bot.send_message(chat_id, text)
+
+async def chat_job(chat_id, delta):
+	await change_avatar(chat_id)
+
+	tdelta = timedelta(days=delta)
+	date = where_run[chat_id]['date'] + tdelta
+	with db.cursor() as cursor:
+		cursor.execute('''UPDATE chats
+						SET date=%s
+						WHERE chat_id=%s''',
+						(date, chat_id))
+	db.commit()
+	where_run[chat_id]['date'] = date 
+	
+
+def add_job(chat_id, date, delta):
+	job = scheduler.get_job(str(chat_id))
+	if job is None:
+		scheduler.add_job(chat_job, "interval", days=delta, start_date=date,
+			id=str(chat_id), args=[chat_id, delta])
+	else:
+		if date is None:
+			date = where_run[chat_id]['date']
+		if delta is None:
+			delta = where_run[chat_id]['delta']
+		
+		job.reschedule(trigger='interval', days=delta, start_date=date)
+		job.modify(args=[chat_id, delta])
+
 
 async def on_startup(dispatcher):
 	global bot_username
@@ -62,10 +131,20 @@ async def on_startup(dispatcher):
 		where_run = {chat_id:{'date':date, 'delta':delta}
 					 for chat_id, date, delta in cursor.fetchall()}
 
+	for chat_id in where_run.keys():
+		date = where_run[chat_id]['date']
+		delta = where_run[chat_id]['delta']
+		print(date)
+		add_job(chat_id, date, delta)
+
+	scheduler.print_jobs()
+	scheduler.start()
+
+
 async def check_permissions(message: types.Message):
 	member = await message.chat.get_member(message.from_user.id)
 
-	return member.can_change_info
+	return member.can_change_info or member.is_chat_creator()
 
 
 @dp.message_handler(commands=['start'])
@@ -79,6 +158,8 @@ async def start(message: types.Message):
 			cursor.execute("INSERT INTO chats VALUES(%s,%s,%s)", (chat_id, date, delta))
 		db.commit()
 		where_run[chat_id] = {'date': date, 'delta': delta}
+		add_job(chat_id, date, delta)
+
 		await bot.send_message(chat_id, "Да начнётся охота!")
 
 @dp.message_handler(commands=['help'])
@@ -94,30 +175,30 @@ async def showsettings(message: types.Message):
 		date, delta = cursor.fetchone()
 
 		cursor.execute('''SELECT photo_id
-		                  FROM platinum
-		                  WHERE chat_id=%s AND hunter=%s''',
-		               (chat_id, '*Default*'))
+						  FROM platinum
+						  WHERE chat_id=%s AND hunter=%s''',
+					   (chat_id, '*Default*'))
 		row = cursor.fetchone()
 
 	text = "Ближайшая дата смены: {}.\n" \
 		"Промежуток между сменами: {}д.".format(date.strftime("%d.%m.%Y %H:%M"), delta)
 
 	if not row is None:
-	    photo_id = row[0]
-	    await message.reply_photo(photo=photo_id, caption=text)
+		photo_id = row[0]
+		await message.reply_photo(photo=photo_id, caption=text)
 	else:
-	    await message.reply(text)
+		await message.reply(text)
 
 @dp.message_handler(commands=['showqueue'])
 async def showqueue(message: types.Message):
 	chat_id = message.chat.id
 	text = "Очередь платин:\n"
 	with db.cursor() as cursor:
-	    cursor.execute('''SELECT hunter, game, photo_id FROM platinum
-	                      WHERE chat_id=%s AND hunter!=%s AND game!=%s''',
-	                      (chat_id, "*Default*", "*Default*"))
+		cursor.execute('''SELECT hunter, game, photo_id FROM platinum
+						  WHERE chat_id=%s AND hunter!=%s AND game!=%s''',
+						  (chat_id, "*Default*", "*Default*"))
 
-	    platinum_chat = [PlatinumRecord(*row) for row in cursor.fetchall()]
+		platinum_chat = [PlatinumRecord(*row) for row in cursor.fetchall()]
 
 	text_record = "\n".join(str(record) for record in platinum_chat)
 
@@ -130,20 +211,20 @@ async def deletegame(message: types.Message):
 
 	with db.cursor() as cursor:
 		cursor.execute('''SELECT hunter, game, photo_id FROM platinum
-		                        WHERE chat_id=%s AND hunter=%s''', (chat_id, username))
+								WHERE chat_id=%s AND hunter=%s''', (chat_id, username))
 		records_user = [PlatinumRecord(*row) for row in cursor.fetchall()]
 
 		if len(records_user) == 0:
-		    text = "Удалять у {} нечего. Поднажми!".format(username)
+			text = "Удалять у {} нечего. Поднажми!".format(username)
 		else:
-		    record = records_user[-1]
-		    cursor.execute('''DELETE FROM platinum
-		                    WHERE chat_id=%s AND hunter=%s AND game=%s''',
-		                   (chat_id, record.hunter, record.game))
-		    text = "Платина в игре {} игрока {} успешно удалена".format(
-		        record.game, record.hunter)
+			record = records_user[-1]
+			cursor.execute('''DELETE FROM platinum
+							WHERE chat_id=%s AND hunter=%s AND game=%s''',
+						   (chat_id, record.hunter, record.game))
+			text = "Платина в игре {} игрока {} успешно удалена".format(
+				record.game, record.hunter)
 
-		    db.commit()
+			db.commit()
 
 	await message.reply(text)
 
@@ -151,7 +232,7 @@ async def deletegame(message: types.Message):
 async def add_record(message: types.Message):
 	chat_id = message.chat.id
 	username = message.from_user.username
-
+	print("I am here")
 	game = message.caption.replace("@{}".format(bot_username), "").strip()
 	file_id = message.photo[-1].file_id
 
@@ -169,30 +250,27 @@ async def add_record(message: types.Message):
 		record = PlatinumRecord(username, game, file_id)
 		with db.cursor() as cursor:
 			cursor.execute("SELECT * FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s",
-	                       (chat_id, record.hunter, record.game))
-	        if cursor.fetchone() is None:
-	            cursor.execute("INSERT INTO platinum VALUES (%s, %s, %s, %s)",
-	                           (chat_id, record.hunter, record.game, record.photo_id))
+						   (chat_id, record.hunter, record.game))
+			if cursor.fetchone() is None:
+				cursor.execute("INSERT INTO platinum VALUES (%s, %s, %s, %s)",
+							   (chat_id, record.hunter, record.game, record.photo_id))
 
-	        else:
-	            cursor.execute('''UPDATE platinum
-	                              SET photo_id=%s
-	                              WHERE chat_id=%s AND hunter=%s AND game=%s''',
-	                           (record.photo_id, chat_id, record.hunter, record.game))
-
-        db.commit()
-
+			else:
+				cursor.execute('''UPDATE platinum
+								  SET photo_id=%s
+								  WHERE chat_id=%s AND hunter=%s AND game=%s''',
+							   (record.photo_id, chat_id, record.hunter, record.game))
+		db.commit()
 
 	await message.reply(text)
 
 
+# @dp.message_handler(text_startswith="@{}".format(bot_username))
+# async def reply_by_text(message: types.Message):
+# 	await message.reply(random.choice(answers['text']))
 
-@dp.message_handler(text_startswith="@{}".format(bot_username))
-async def reply_by_text(message: types.Message):
-	await message.reply(random.choice(answers['text']))
-
-
-@dp.message_handler(text_startswith="@{} *Delta*".format(bot_username))
+@dp.message_handler(text_contains=["@{}".format(bot_username), "*Delta*"],
+	content_types=ContentType.TEXT)
 async def set_delta(message: types.Message):
 	chat_id = message.chat.id
 
@@ -205,7 +283,8 @@ async def set_delta(message: types.Message):
 					cursor.execute("UPDATE chats SET delta=%s WHERE chat_id=%s",
 									(delta, chat_id))
 				db.commit()
-				self.where_run[chat_id]['delta'] = delta
+				where_run[chat_id]['delta'] = delta
+				add_job(chat_id=chat_id, date=None, delta=delta)
 				text = "Промежуток между сменами фото чата успешно установлен."
 			else:
 				text = "Промежуток между сменами фото должен быть больше нуля и целым числом"
@@ -216,29 +295,32 @@ async def set_delta(message: types.Message):
 
 	await message.reply(text)
 
-@dp.message_handler(text_startswith="@{} *Delta*".format(bot_username))
+@dp.message_handler(text_contains=["@{}".format(bot_username), "*Date*"],
+	content_types=ContentType.TEXT)
 async def set_date(message: types.Message):
-    chat_id = message.chat.id
+	chat_id = message.chat.id
 
-    if await check_permissions(message):
-    	date_str = message.text.replace("@{} *Delta*".format(bot_username), "").strip()
-        try:
-            date = datetime.strptime(date_str, "%d.%m.%Y %H:%M")
-            if date > datetime.now():
-                with db.cursor() as cursor:
-                	cursor.execute("UPDATE chats SET date=%s WHERE chat_id=%s", (date, chat_id))
-                db.commit()
-                where_run[chat_id]['date'] = date
-                text = "Ближайшая дата смены фото чата успешно установлена."
-            else:
-                text = "Ближайшая дата смены оказалась в прошлом. Я не могу изменить прошлое!"
-        except ValueError:
-            text = "Дата введена неверна. Пример: " \
-                   "@{} *Date* 22.07.1941 04:00".format(bot_username)
-    else:
-        text = "У вас нет прав для изменения информации группы!"
+	if await check_permissions(message):
+		date_str = message.text.replace("@{} *Date*".format(bot_username), "").strip()
+		try:
+			date = datetime.strptime(date_str, "%d/%m/%Y %H:%M")
+			date = date.replace(tzinfo=utc)
+			if date > datetime.now(timezone.utc):
+				with db.cursor() as cursor:
+					cursor.execute("UPDATE chats SET date=%s WHERE chat_id=%s", (date, chat_id))
+				db.commit()
+				add_job(chat_id=chat_id, date=date, delta=None)
+				where_run[chat_id]['date'] = date
+				text = "Ближайшая дата смены фото чата успешно установлена."
+			else:
+				text = "Ближайшая дата смены оказалась в прошлом. Я не могу изменить прошлое!"
+		except ValueError:
+			text = "Дата введена неверна. Пример: " \
+				   "@{} *Date* 22/07/1941 04:00".format(bot_username)
+	else:
+		text = "У вас нет прав для изменения информации группы!"
 
-    await message.reply(text)
+	await message.reply(text)
 
 if __name__ == '__main__':
 	executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
