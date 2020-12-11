@@ -7,6 +7,8 @@ import logging
 from pytz import utc
 from datetime import datetime, timezone, timedelta
 
+import texttable as tt
+
 import psycopg2
 from psycopg2 import sql
 from aiogram import Bot, Dispatcher, executor, types
@@ -32,6 +34,11 @@ db = psycopg2.connect(DATABASE_URL, sslmode='require')
 bot_username=""
 
 scheduler = AsyncIOScheduler(timezone=utc)
+
+tab = tt.Texttable()
+tab.set_deco(tt.Texttable.HEADER)
+tab.header(['#','Nickname', 'Game'])
+tab.set_cols_align(['c', 'l', 'l'])
 
 class PlatinumRecord:
 	"""PlatinumRecord is class for record of platinum"""
@@ -200,8 +207,11 @@ async def showqueue(message: types.Message):
 
 		platinum_chat = [PlatinumRecord(*row) for row in cursor.fetchall()]
 
-	text_record = "\n".join(str(record) for record in platinum_chat)
+	# text_record = "\n".join(str(record) for record in platinum_chat)
 
+	for i, record in enumerate(platinum_chat, 1):
+		tab.add_row((i, record.hunter, record.game))
+	text_record = tab.draw()
 	await message.reply(text+text_record)
 
 @dp.message_handler(commands=['deletegame'])
