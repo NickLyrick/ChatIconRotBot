@@ -1,6 +1,7 @@
 """ Main script Bot  """
 
 import os
+import re
 import sys
 import random
 import logging
@@ -293,7 +294,7 @@ async def add_record(message: types.Message):
 	await message.reply(text)
 
 
-@dp.message_handler(regexp=r'^((?!\*Date\*|\*Delta\*).)*@{}((?!\*Date\*|\*Delta\*).)*$'.format(bot_username))
+@dp.message_handler(lambda message: re.match(r'^((?!\*Date\*|\*Delta\*).)*@{}((?!\*Date\*|\*Delta\*).)*$'.format(bot_username), message.text))
 async def reply_by_text(message: types.Message):
 	await message.reply(random.choice(answers['text']))
 
