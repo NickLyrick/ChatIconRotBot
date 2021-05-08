@@ -205,7 +205,10 @@ async def showqueue(message: types.Message):
 						  (chat_id, "*Default*", "*Default*"))
 
 		data = [(i, *record[0:2]) for i, record in enumerate(cursor.fetchall(), start=1)]
-
+	
+	if len(date) == 0:
+		await message.reply("Список пуст!")
+	
 	table = plt.table(cellText=data, colLabels=["№","Nickname","Game"], cellLoc='center', loc='center', colColours=['silver']*3)
 	plt.axis('off')
 	plt.grid('off')
