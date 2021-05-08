@@ -4,8 +4,12 @@ import os
 import sys
 import random
 import logging
+from io import BytesIO
 from pytz import utc
 from datetime import datetime, timezone, timedelta
+
+from matplotlib import pyplot as plt
+from matplotlib.transforms import Bbox
 
 import psycopg2
 from psycopg2 import sql
@@ -29,7 +33,7 @@ where_run = dict()
 
 db = psycopg2.connect(DATABASE_URL, sslmode='require')
 
-bot_username = ""
+bot_username = 'ChatIconRotBot'
 
 scheduler = AsyncIOScheduler(timezone=utc)
 
@@ -126,7 +130,7 @@ async def on_startup(dispatcher):
 
 	bot_user = await bot.me
 	bot_username = bot_user.username
-
+	
 	with db.cursor() as cursor:
 		cursor.execute("SELECT * FROM chats")
 		where_run = {chat_id:{'date':date, 'delta':delta}
@@ -193,17 +197,41 @@ async def showsettings(message: types.Message):
 @dp.message_handler(commands=['showqueue'])
 async def showqueue(message: types.Message):
 	chat_id = message.chat.id
-	text = "Очередь платин:\n"
+	text = "Очередь платин"
 	with db.cursor() as cursor:
 		cursor.execute('''SELECT hunter, game, photo_id FROM platinum
 						  WHERE chat_id=%s AND hunter!=%s AND game!=%s''',
 						  (chat_id, "*Default*", "*Default*"))
 
-		platinum_chat = [PlatinumRecord(*row) for row in cursor.fetchall()]
+		data = [(i, *record[0:2]) for i, record in enumerate(cursor.fetchall(), start=1)]
 
-	text_record = "\n".join(str(record) for record in platinum_chat)
+	table = plt.table(cellText=data, colLabels=["№","Nickname","Game"], cellLoc='center', loc='center', colColours=['silver']*3)
+	plt.axis('off')
+	plt.grid('off')
+	table.auto_set_font_size(False)
+	table.set_fontsize(18)
+	table.scale(1, 3)
+	table.auto_set_column_width(col=[0,1,2])
 
-	await message.reply(text+text_record)
+	for _, cell in table.get_celld().items():
+		cell.set_linewidth(2)
+
+	#prepare for saving:
+	# draw canvas once
+	plt.gcf().canvas.draw()
+	# get bounding box of table
+	points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
+	# add 3 pixel spacing
+	points[0,:] -= 3
+	points[1,:] += 3
+	# get new bounding box in inches
+	nbbox = Bbox.from_extents(points/plt.gcf().dpi)
+
+	img = BytesIO()
+	plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
+	img.seek(0)
+
+	await message.reply_photo(photo=img, caption=text)
 
 @dp.message_handler(commands=['deletegame'])
 async def deletegame(message: types.Message):
@@ -233,7 +261,6 @@ async def deletegame(message: types.Message):
 async def add_record(message: types.Message):
 	chat_id = message.chat.id
 	username = message.from_user.username
-	print("I am here")
 	game = message.caption.replace("@{}".format(bot_username), "").strip()
 	file_id = message.photo[-1].file_id
 
