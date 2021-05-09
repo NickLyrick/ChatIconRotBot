@@ -202,35 +202,35 @@ async def showqueue(message: types.Message):
 
     if len(data) == 0:
         await message.reply("Список пуст!")
+    else:
+        table = plt.table(cellText=data, colLabels=["№", "Nickname", "Game"], cellLoc='center',
+                          loc='center', colColours=['silver'] * 3)
+        plt.axis('off')
+        plt.grid('off')
+        table.auto_set_font_size(False)
+        table.set_fontsize(18)
+        table.scale(1, 3)
+        table.auto_set_column_width(col=[0, 1, 2])
 
-    table = plt.table(cellText=data, colLabels=["№", "Nickname", "Game"], cellLoc='center',
-                      loc='center', colColours=['silver'] * 3)
-    plt.axis('off')
-    plt.grid('off')
-    table.auto_set_font_size(False)
-    table.set_fontsize(18)
-    table.scale(1, 3)
-    table.auto_set_column_width(col=[0, 1, 2])
+        for _, cell in table.get_celld().items():
+            cell.set_linewidth(2)
 
-    for _, cell in table.get_celld().items():
-        cell.set_linewidth(2)
+        # prepare for saving:
+        # draw canvas once
+        plt.gcf().canvas.draw()
+        # get bounding box of table
+        points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
+        # add 3 pixel spacing
+        points[0, :] -= 3
+        points[1, :] += 3
+        # get new bounding box in inches
+        nbbox = Bbox.from_extents(points / plt.gcf().dpi)
 
-    # prepare for saving:
-    # draw canvas once
-    plt.gcf().canvas.draw()
-    # get bounding box of table
-    points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
-    # add 3 pixel spacing
-    points[0, :] -= 3
-    points[1, :] += 3
-    # get new bounding box in inches
-    nbbox = Bbox.from_extents(points / plt.gcf().dpi)
+        img = BytesIO()
+        plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
+        img.seek(0)
 
-    img = BytesIO()
-    plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
-    img.seek(0)
-
-    await message.reply_photo(photo=img, caption=text)
+        await message.reply_photo(photo=img, caption=text)
 
 
 @dp.message_handler(commands=['deletegame'])
