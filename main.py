@@ -256,7 +256,7 @@ async def deletegame(message: types.Message):
     await message.reply(text)
 
 
-@dp.message_handler(lambda message: message.text.startswith(f"@{bot_username}"),
+@dp.message_handler(lambda message: message.caption.startswith(f"@{bot_username}"),
                     content_types=ContentType.PHOTO)
 async def add_record(message: types.Message):
     chat_id = message.chat.id
