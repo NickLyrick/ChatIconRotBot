@@ -256,7 +256,8 @@ async def deletegame(message: types.Message):
     await message.reply(text)
 
 
-@dp.message_handler(text_startswith="@{}".format(bot_username), content_types=ContentType.PHOTO)
+@dp.message_handler(lambda message: message.text.startswith(f"@{bot_username}"),
+                    content_types=ContentType.PHOTO)
 async def add_record(message: types.Message):
     chat_id = message.chat.id
     username = message.from_user.username
@@ -297,7 +298,7 @@ async def reply_by_text(message: types.Message):
     await message.reply(random.choice(answers['text']))
 
 
-@dp.message_handler(lambda message: re.match(r'^@{} \*Delta\*'.format(bot_username), message.text),
+@dp.message_handler(lambda message: message.text.startswith(f'@{bot_username} *Delta*'),
                     content_types=ContentType.TEXT)
 async def set_delta(message: types.Message):
     chat_id = message.chat.id
@@ -324,7 +325,7 @@ async def set_delta(message: types.Message):
     await message.reply(text)
 
 
-@dp.message_handler(lambda message: re.match(r'^@{} \*Date\*'.format(bot_username), message.text),
+@dp.message_handler(lambda message: message.text.startswith(f'@{bot_username} *Date*'),
                     content_types=ContentType.TEXT)
 async def set_date(message: types.Message):
     chat_id = message.chat.id
