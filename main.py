@@ -12,6 +12,8 @@ from matplotlib import pyplot as plt
 from matplotlib.transforms import Bbox
 
 import psycopg2
+from psycopg2 import sql
+
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ContentType
 
@@ -277,15 +279,19 @@ async def add_record(message: types.Message):
     if username is not None:
         record = PlatinumRecord(username, game, file_id)
         with db.cursor() as cursor:
-            cursor.execute("SELECT * FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s",
-                           (chat_id, record.hunter, record.game))
+            query = sql.SQL('''SELECT * FROM platinum
+                            WHERE chat_id=%s AND hunter={} AND game={}''').format(sql.Literal(record.hunter),
+                                                                                  sql.Literal(record.game))
+            cursor.execute(query, (chat_id,))
             if cursor.fetchone() is None:
-                cursor.execute("INSERT INTO platinum VALUES (%s, %s, %s, %s)",
-                               (chat_id, record.hunter, record.game, record.photo_id))
-
+                query = sql.SQL("INSERT INTO platinum VALUES (%s, {}, {}, %s)").format(sql.Literal(record.hunter),
+                                                                                       sql.Literal(record.game))
+                cursor.execute(query, (chat_id, record.photo_id))
             else:
-                cursor.execute('''UPDATE platinum SET photo_id=%s WHERE chat_id=%s AND hunter=%s AND game=%s''',
-                               (record.photo_id, chat_id, record.hunter, record.game))
+                query = sql.SQL("UPDATE platinum SET photo_id=%s "
+                                "WHERE chat_id=%s AND hunter={} AND game={}").format(sql.Literal(record.hunter),
+                                                                                     sql.Literal(record.game))
+                cursor.execute(query, (record.photo_id, chat_id,))
         db.commit()
 
     await message.reply(text)
