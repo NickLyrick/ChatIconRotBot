@@ -19,6 +19,9 @@ from aiogram.types import ContentType
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+import wikipedia
+from wikipedia import exceptions as wikiexceptions
+
 from answers import answers, help_text
 
 DATABASE_URL = os.environ['DATABASE_URL']
@@ -360,6 +363,38 @@ async def set_date(message: types.Message):
         text = "У вас нет прав для изменения информации группы!"
 
     await message.reply(text)
+
+
+@dp.message_handler(commands=['gamesinfo'])
+async def games_info(message: types.Message):
+    chat_id = message.chat.id
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT hunter, game FROM platinum "
+                       "WHERE chat_id=%s AND hunter!=%s AND game!=%s ORDER BY id ASC",
+                       (chat_id, "*Default*", "*Default*"))
+
+        data = [record for record in cursor.fetchall()]
+
+    text = ""
+    for i, record in enumerate(data, start=1):
+        game = record[1]
+        try:
+            page = wikipedia.page(game)
+            url = f"[{game}]({page.url})"
+        except wikiexceptions.PageError:
+            results = wikipedia.search(game)
+            try:
+                page = wikipedia.page(results[0])
+                url = f"[{game}]({page.url} )"
+            except wikiexceptions.PageError:
+                url = "Информация не найдена"
+        except wikiexceptions.DisambiguationError:
+            url = "Информация не найдена"
+
+        text += f"{i}) {url} \n"
+
+    await message.reply(text, parse_mode="Markdown")
 
 
 if __name__ == '__main__':
