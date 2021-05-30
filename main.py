@@ -60,7 +60,8 @@ class PlatinumRecord:
 
 async def change_avatar(chat_id):
     with db.cursor() as cursor:
-        cursor.execute('''SELECT hunter, game, photo_id FROM platinum WHERE chat_id=%s AND hunter!=%s''',
+        cursor.execute("SELECT hunter, game, photo_id FROM platinum "
+                       "WHERE chat_id=%s AND hunter!=%s ORDER BY id ASC",
                        (chat_id, "*Default*",))
 
         records = [PlatinumRecord(*row) for row in cursor.fetchall()]
@@ -197,7 +198,8 @@ async def showqueue(message: types.Message):
     chat_id = message.chat.id
     text = "Очередь платин"
     with db.cursor() as cursor:
-        cursor.execute('''SELECT hunter, game, photo_id FROM platinum WHERE chat_id=%s AND hunter!=%s AND game!=%s''',
+        cursor.execute("SELECT hunter, game, photo_id FROM platinum "
+                       "WHERE chat_id=%s AND hunter!=%s AND game!=%s ORDER BY id ASC",
                        (chat_id, "*Default*", "*Default*"))
 
         data = [(i, *record[0:2]) for i, record in enumerate(cursor.fetchall(), start=1)]
@@ -241,7 +243,8 @@ async def deletegame(message: types.Message):
     username = message.from_user.username
 
     with db.cursor() as cursor:
-        cursor.execute('''SELECT hunter, game, photo_id FROM platinum WHERE chat_id=%s AND hunter=%s''',
+        cursor.execute("SELECT hunter, game, photo_id FROM platinum "
+                       "WHERE chat_id=%s AND hunter=%s ORDER BY id ASC",
                        (chat_id, username))
         records_user = [PlatinumRecord(*row) for row in cursor.fetchall()]
 
