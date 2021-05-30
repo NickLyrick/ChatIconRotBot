@@ -27,4 +27,5 @@ toml==0.10.2
 typing-extensions==3.7.4.3
 tzlocal==2.1
 wrapt==1.12.1
+git+git://github.com/goldsmith/Wikipedia.git
 yarl==1.6.3
