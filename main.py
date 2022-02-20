@@ -257,6 +257,8 @@ async def deletegame(message: types.Message):
             record = records_user[-1]
             cursor.execute('''DELETE FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s''',
                            (chat_id, record.hunter, record.game))
+            cursor.execute('''DELETE FROM history WHERE chat_id=%s AND hunter=%s AND game=%s''',
+                           (chat_id, record.hunter, record.game))
             text = "Платина в игре {} игрока {} успешно удалена".format(record.game, record.hunter)
 
             db.commit()
@@ -293,6 +295,11 @@ async def add_record(message: types.Message):
                 query = sql.SQL("INSERT INTO platinum VALUES (%s, {}, {}, %s)").format(sql.Literal(record.hunter),
                                                                                        sql.Literal(record.game))
                 cursor.execute(query, (chat_id, record.photo_id))
+
+                query = sql.SQL("INSERT INTO history(chat_id, hunter, game) VALUES (%s, {}, {})").format(sql.Literal(record.hunter),
+                    sql.Literal(record.game))
+
+                cursor.execute(query, (chat_id))
             else:
                 query = sql.SQL("UPDATE platinum SET photo_id=%s "
                                 "WHERE chat_id=%s AND hunter={} AND game={}").format(sql.Literal(record.hunter),
@@ -304,7 +311,7 @@ async def add_record(message: types.Message):
 
 
 @dp.message_handler(
-    lambda message: re.match(r'^((?!\*Date\*|\*Delta\*).)*@{}((?!\*Date\*|\*Delta\*).)*$'.format(bot_username),
+    lambda message: re.match(r'^((?!\*Date\*|\*Delta\*|\*History\*).)*@{}((?!\*Date\*|\*Delta\*|\*History\*).)*$'.format(bot_username),
                              message.text))
 async def reply_by_text(message: types.Message):
     await message.reply(random.choice(answers['text']))
@@ -363,6 +370,59 @@ async def set_date(message: types.Message):
         text = "У вас нет прав для изменения информации группы!"
 
     await message.reply(text)
+
+@dp.message_handler(lambda message: message.text.startswith(f'@{bot_username} *History*'),
+                    content_types=ContentType.TEXT)
+async def set_date(message: types.Message):
+    chat_id = message.chat.id
+
+    username = message.text.replace("@{} *History*".format(bot_username), "").strip()
+
+    if username == "":
+        username = message.from_user.username
+    else:
+        username = username.replace("@", "")
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT game, date FROM history "
+                       "WHERE chat_id=%s AND hunter=%s ORDER BY id ASC",
+                       (chat_id, username))
+
+        data = [(i, *record[0:1]) for i, record in enumerate(cursor.fetchall(), start=1)]
+
+    if len(data) == 0:
+        await message.reply("Список пуст!")
+    else:
+        text = f"Список всех платин {username}"
+        table = plt.table(cellText=data, colLabels=["№", "Game", "Date"], cellLoc='center',
+                          loc='center', colColours=['silver'] * 3)
+        plt.axis('off')
+        plt.grid('off')
+        table.auto_set_font_size(False)
+        table.set_fontsize(18)
+        table.scale(1, 3)
+        table.auto_set_column_width(col=[0, 1, 2])
+
+        for _, cell in table.get_celld().items():
+            cell.set_linewidth(2)
+
+        # prepare for saving:
+        # draw canvas once
+        plt.gcf().canvas.draw()
+        # get bounding box of table
+        points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
+        # add 3 pixel spacing
+        points[0, :] -= 3
+        points[1, :] += 3
+        # get new bounding box in inches
+        nbbox = Bbox.from_extents(points / plt.gcf().dpi)
+
+        img = BytesIO()
+        plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
+        img.seek(0)
+
+        await message.reply_photo(photo=img, caption=text)
+
 
 
 @dp.message_handler(commands=['gamesinfo'])
