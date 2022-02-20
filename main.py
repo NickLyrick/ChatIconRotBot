@@ -387,8 +387,13 @@ async def set_date(message: types.Message):
         cursor.execute("SELECT game, date FROM history "
                        "WHERE chat_id=%s AND hunter=%s ORDER BY date ASC",
                        (chat_id, username))
+        data = []
+        for i, record in enumerate(cursor.fetchall(), start=1):
+            game, date = record
+            date = date.astimezone(tz=timezone('Europe/Moscow'))
+            date_str = date.strftime("%d.%m.%Y")
+            data.append((i, game, date_str))
 
-        data = [(i, *record[0:2]) for i, record in enumerate(cursor.fetchall(), start=1)]
 
     if len(data) == 0:
         await message.reply("Список пуст!")
