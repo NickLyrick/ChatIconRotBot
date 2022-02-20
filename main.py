@@ -5,7 +5,7 @@ import re
 import random
 import logging
 from io import BytesIO
-from pytz import utc
+from pytz import utc, timezone as tzTimezone
 from datetime import datetime, timezone, timedelta
 
 from matplotlib import pyplot as plt
@@ -390,7 +390,7 @@ async def set_date(message: types.Message):
         data = []
         for i, record in enumerate(cursor.fetchall(), start=1):
             game, date = record
-            date = date.astimezone(tz=timezone('Europe/Moscow'))
+            date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
             date_str = date.strftime("%d.%m.%Y")
             data.append((i, game, date_str))
 
