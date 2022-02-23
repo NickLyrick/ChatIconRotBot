@@ -312,6 +312,70 @@ async def top(message: types.Message):
     else:
         await message.reply_photo(photo=img, caption=text)
 
+@dp.message_handler(commands=['history'])
+async def history(message: types.Message):
+    chat_id = message.chat.id
+
+    arguments =  message.get_args()
+    if len(arguments) == 0:
+        username = message.from_user.username
+    else:
+        username = arguments.replace("@", "")
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT game, date FROM history "
+                       "WHERE chat_id=%s AND hunter=%s ORDER BY date ASC",
+                       (chat_id, username))
+        data = []
+        for i, record in enumerate(cursor.fetchall(), start=1):
+            game, date = record
+            date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
+            date_str = date.strftime("%d.%m.%Y")
+            data.append((i, game, date_str))
+
+
+    if len(data) == 0:
+        await message.reply("Список пуст!")
+    else:
+        text = f"Список всех платин {username}"
+
+        img = table(data, ["№", "Game", "Date"])
+
+        await message.reply_photo(photo=img, caption=text)
+
+
+
+@dp.message_handler(commands=['gamesinfo'])
+async def games_info(message: types.Message):
+    chat_id = message.chat.id
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT hunter, game FROM platinum "
+                       "WHERE chat_id=%s AND hunter!=%s AND game!=%s ORDER BY id ASC",
+                       (chat_id, "*Default*", "*Default*"))
+
+        data = [record for record in cursor.fetchall()]
+
+    text = ""
+    for i, record in enumerate(data, start=1):
+        game = record[1]
+        try:
+            page = wikipedia.page(game)
+            url = f"[{game}]({page.url})"
+        except wikiexceptions.PageError:
+            results = wikipedia.search(game)
+            try:
+                page = wikipedia.page(results[0])
+                url = f"[{game}]({page.url} )"
+            except wikiexceptions.PageError:
+                url = "Информация не найдена"
+        except wikiexceptions.DisambiguationError:
+            url = "Информация не найдена"
+
+        text += f"{i}) {url} \n"
+
+    await message.reply(text, parse_mode="Markdown")
+
 @dp.message_handler(lambda message: message.caption.startswith(f"@{bot_username}"),
                     content_types=ContentType.PHOTO)
 async def add_record(message: types.Message):
@@ -416,70 +480,6 @@ async def set_date(message: types.Message):
         text = "У вас нет прав для изменения информации группы!"
 
     await message.reply(text)
-
-@dp.message_handler(commands=['history'])
-async def history(message: types.Message):
-    chat_id = message.chat.id
-
-    arguments =  message.get_args()
-    if len(arguments) == 0:
-        username = message.from_user.username
-    else:
-        username = arguments.replace("@", "")
-
-    with db.cursor() as cursor:
-        cursor.execute("SELECT game, date FROM history "
-                       "WHERE chat_id=%s AND hunter=%s ORDER BY date ASC",
-                       (chat_id, username))
-        data = []
-        for i, record in enumerate(cursor.fetchall(), start=1):
-            game, date = record
-            date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
-            date_str = date.strftime("%d.%m.%Y")
-            data.append((i, game, date_str))
-
-
-    if len(data) == 0:
-        await message.reply("Список пуст!")
-    else:
-        text = f"Список всех платин {username}"
-
-        img = table(data, ["№", "Game", "Date"])
-
-        await message.reply_photo(photo=img, caption=text)
-
-
-
-@dp.message_handler(commands=['gamesinfo'])
-async def games_info(message: types.Message):
-    chat_id = message.chat.id
-
-    with db.cursor() as cursor:
-        cursor.execute("SELECT hunter, game FROM platinum "
-                       "WHERE chat_id=%s AND hunter!=%s AND game!=%s ORDER BY id ASC",
-                       (chat_id, "*Default*", "*Default*"))
-
-        data = [record for record in cursor.fetchall()]
-
-    text = ""
-    for i, record in enumerate(data, start=1):
-        game = record[1]
-        try:
-            page = wikipedia.page(game)
-            url = f"[{game}]({page.url})"
-        except wikiexceptions.PageError:
-            results = wikipedia.search(game)
-            try:
-                page = wikipedia.page(results[0])
-                url = f"[{game}]({page.url} )"
-            except wikiexceptions.PageError:
-                url = "Информация не найдена"
-        except wikiexceptions.DisambiguationError:
-            url = "Информация не найдена"
-
-        text += f"{i}) {url} \n"
-
-    await message.reply(text, parse_mode="Markdown")
 
 
 if __name__ == '__main__':
