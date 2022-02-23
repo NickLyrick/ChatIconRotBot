@@ -124,6 +124,54 @@ def add_job(chat_id, date, delta):
         job.reschedule(trigger='interval', days=delta, start_date=date)
         job.modify(args=[chat_id, delta])
 
+def table(data, columns):
+    table = plt.table(cellText=data, colLabels=columns, cellLoc='center',
+                          loc='center', colColours=['silver'] * len(columns))
+    plt.axis('off')
+    plt.grid('off')
+    table.auto_set_font_size(False)
+    table.set_fontsize(18)
+    table.scale(1, len(columns))
+    table.auto_set_column_width(col=list(range(len(columns))))
+
+    for _, cell in table.get_celld().items():
+        cell.set_linewidth(2)
+
+    # prepare for saving:
+    # draw canvas once
+    plt.gcf().canvas.draw()
+    # get bounding box of table
+    points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
+    # add 3 pixel spacing
+    points[0, :] -= 3
+    points[1, :] += 3
+    # get new bounding box in inches
+    nbbox = Bbox.from_extents(points / plt.gcf().dpi)
+
+    img = BytesIO()
+    plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
+    img.seek(0)
+
+    return img
+
+def history_date(chat_id, date: datetime):
+    date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT hunter, COUNT(id) FROM history "
+                       "WHERE chat_id=%s AND date>=%s "
+                       "GROUP BY hunter "
+                       "ORDER BY COUNT(id) DESC",
+                       (chat_id, date))
+        data = [(i, *record) for i, record in enumerate(cursor.fetchall(), start=1)]
+
+    if len(data) > 0:
+        img = table(data, ["№", "Nickname", "Platinums"])
+
+        return img
+    else:
+        return None
+
 
 async def on_startup(dispatcher):
     global bot_username
@@ -210,32 +258,7 @@ async def showqueue(message: types.Message):
     if len(data) == 0:
         await message.reply("Список пуст!")
     else:
-        table = plt.table(cellText=data, colLabels=["№", "Nickname", "Game"], cellLoc='center',
-                          loc='center', colColours=['silver'] * 3)
-        plt.axis('off')
-        plt.grid('off')
-        table.auto_set_font_size(False)
-        table.set_fontsize(18)
-        table.scale(1, 3)
-        table.auto_set_column_width(col=[0, 1, 2])
-
-        for _, cell in table.get_celld().items():
-            cell.set_linewidth(2)
-
-        # prepare for saving:
-        # draw canvas once
-        plt.gcf().canvas.draw()
-        # get bounding box of table
-        points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
-        # add 3 pixel spacing
-        points[0, :] -= 3
-        points[1, :] += 3
-        # get new bounding box in inches
-        nbbox = Bbox.from_extents(points / plt.gcf().dpi)
-
-        img = BytesIO()
-        plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
-        img.seek(0)
+        img = table(data, ["№", "Nickname", "Game"])
 
         await message.reply_photo(photo=img, caption=text)
 
@@ -265,6 +288,29 @@ async def deletegame(message: types.Message):
 
     await message.reply(text)
 
+@dp.message_handler(commands=['top'])
+async def top(message: types.Message):
+    chat_id = message.chat.id
+
+    arguments = message.get_args()
+    date = datetime(1970, 1, 1)
+    if len(arguments) == 0:
+        text = "Топ за всё время"
+    else:
+        try:
+            date = datetime.strptime(arguments, '%d.%m.%Y')
+
+            text = "Топ за указанный промежуток"
+
+        except ValueError:
+            text = "Топ за всё время"
+
+    img = history_date(chat_id=chat_id, date=date)
+
+    if img is None:
+        await message.reply("Список пуст!")
+    else:
+        await message.reply_photo(photo=img, caption=text)
 
 @dp.message_handler(lambda message: message.caption.startswith(f"@{bot_username}"),
                     content_types=ContentType.PHOTO)
@@ -311,7 +357,7 @@ async def add_record(message: types.Message):
 
 
 @dp.message_handler(
-    lambda message: re.match(r'^((?!\*Date\*|\*Delta\*|\*History\*).)*@{}((?!\*Date\*|\*Delta\*|\*History\*).)*$'.format(bot_username),
+    lambda message: re.match(r'^((?!\*Date\*|\*Delta\*).)*@{}((?!\*Date\*|\*Delta\*|).)*$'.format(bot_username),
                              message.text))
 async def reply_by_text(message: types.Message):
     await message.reply(random.choice(answers['text']))
@@ -371,17 +417,15 @@ async def set_date(message: types.Message):
 
     await message.reply(text)
 
-@dp.message_handler(lambda message: message.text.startswith(f'@{bot_username} *History*'),
-                    content_types=ContentType.TEXT)
-async def set_date(message: types.Message):
+@dp.message_handler(commands=['history'])
+async def history(message: types.Message):
     chat_id = message.chat.id
 
-    username = message.text.replace("@{} *History*".format(bot_username), "").strip()
-
-    if username == "":
+    arguments =  message.get_args()
+    if len(arguments) == 0:
         username = message.from_user.username
     else:
-        username = username.replace("@", "")
+        username = arguments.replace("@", "")
 
     with db.cursor() as cursor:
         cursor.execute("SELECT game, date FROM history "
@@ -399,32 +443,8 @@ async def set_date(message: types.Message):
         await message.reply("Список пуст!")
     else:
         text = f"Список всех платин {username}"
-        table = plt.table(cellText=data, colLabels=["№", "Game", "Date"], cellLoc='center',
-                          loc='center', colColours=['silver'] * 3)
-        plt.axis('off')
-        plt.grid('off')
-        table.auto_set_font_size(False)
-        table.set_fontsize(18)
-        table.scale(1, 3)
-        table.auto_set_column_width(col=[0, 1, 2])
 
-        for _, cell in table.get_celld().items():
-            cell.set_linewidth(2)
-
-        # prepare for saving:
-        # draw canvas once
-        plt.gcf().canvas.draw()
-        # get bounding box of table
-        points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
-        # add 3 pixel spacing
-        points[0, :] -= 3
-        points[1, :] += 3
-        # get new bounding box in inches
-        nbbox = Bbox.from_extents(points / plt.gcf().dpi)
-
-        img = BytesIO()
-        plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
-        img.seek(0)
+        img = table(data, ["№", "Game", "Date"])
 
         await message.reply_photo(photo=img, caption=text)
 
