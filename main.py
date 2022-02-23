@@ -299,7 +299,7 @@ async def add_record(message: types.Message):
                 query = sql.SQL("INSERT INTO history(chat_id, hunter, game) VALUES (%s, {}, {})").format(sql.Literal(record.hunter),
                     sql.Literal(record.game))
 
-                cursor.execute(query, (chat_id))
+                cursor.execute(query, (chat_id,))
             else:
                 query = sql.SQL("UPDATE platinum SET photo_id=%s "
                                 "WHERE chat_id=%s AND hunter={} AND game={}").format(sql.Literal(record.hunter),
