@@ -20,7 +20,7 @@ matplotlib==3.4.2
 mccabe==0.6.1
 multidict==5.1.0
 numpy==1.20.2
-Pillow==8.2.0
+Pillow==9.0.1
 psycopg2-binary==2.9.3
 pylint==2.6.0
 pyparsing==2.4.7
