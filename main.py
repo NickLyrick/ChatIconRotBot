@@ -376,6 +376,56 @@ async def games_info(message: types.Message):
 
     await message.reply(text, parse_mode="Markdown")
 
+@dp.message_handler(commands=['delta'])
+async def set_delta(message: types.Message):
+    chat_id = message.chat.id
+
+    if await check_permissions(message):
+        try:
+            delta = int(message.get_args())
+            if delta > 0:
+                with db.cursor() as cursor:
+                    cursor.execute("UPDATE chats SET delta=%s WHERE chat_id=%s",
+                                   (delta, chat_id))
+                db.commit()
+                where_run[chat_id]['delta'] = delta
+                add_job(chat_id=chat_id, date=None, delta=delta)
+                text = "Промежуток между сменами фото чата успешно установлен."
+            else:
+                text = "Промежуток между сменами фото должен быть больше нуля и целым числом"
+        except ValueError:
+            text = "Промежуток задан не верно. Пример: /delta@{} 3".format(bot_username)
+    else:
+        text = "У вас нет прав для изменения информации группы!"
+
+    await message.reply(text)
+
+
+@dp.message_handler(commands=['date'])
+async def set_date(message: types.Message):
+    chat_id = message.chat.id
+
+    if await check_permissions(message):
+        try:
+            date = datetime.strptime(message.get_args(), "%d/%m/%Y %H:%M")
+            date = date.replace(tzinfo=utc)
+            if date > datetime.now(timezone.utc):
+                with db.cursor() as cursor:
+                    cursor.execute("UPDATE chats SET date=%s WHERE chat_id=%s", (date, chat_id))
+                db.commit()
+                add_job(chat_id=chat_id, date=date, delta=None)
+                where_run[chat_id]['date'] = date
+                text = "Ближайшая дата смены фото чата успешно установлена."
+            else:
+                text = "Ближайшая дата смены оказалась в прошлом. Я не могу изменить прошлое!"
+        except ValueError:
+            text = "Дата введена неверна. Пример: " \
+                   "/date@{} 22/07/1941 04:00".format(bot_username)
+    else:
+        text = "У вас нет прав для изменения информации группы!"
+
+    await message.reply(text)
+
 @dp.message_handler(lambda message: message.caption.startswith(f"@{bot_username}"),
                     content_types=ContentType.PHOTO)
 async def add_record(message: types.Message):
@@ -419,68 +469,10 @@ async def add_record(message: types.Message):
 
     await message.reply(text)
 
-
-@dp.message_handler(
-    lambda message: re.match(r'^((?!\*Date\*|\*Delta\*).)*@{}((?!\*Date\*|\*Delta\*|).)*$'.format(bot_username),
-                             message.text))
+@dp.message_handler(lambda message: f' @{bot_username} ' in f' {message.text} ',
+    content_types=ContentType.TEXT)
 async def reply_by_text(message: types.Message):
     await message.reply(random.choice(answers['text']))
-
-
-@dp.message_handler(lambda message: message.text.startswith(f'@{bot_username} *Delta*'),
-                    content_types=ContentType.TEXT)
-async def set_delta(message: types.Message):
-    chat_id = message.chat.id
-
-    if await check_permissions(message):
-        delta_str = message.text.replace("@{} *Delta*".format(bot_username), "").strip()
-        try:
-            delta = int(delta_str)
-            if delta > 0:
-                with db.cursor() as cursor:
-                    cursor.execute("UPDATE chats SET delta=%s WHERE chat_id=%s",
-                                   (delta, chat_id))
-                db.commit()
-                where_run[chat_id]['delta'] = delta
-                add_job(chat_id=chat_id, date=None, delta=delta)
-                text = "Промежуток между сменами фото чата успешно установлен."
-            else:
-                text = "Промежуток между сменами фото должен быть больше нуля и целым числом"
-        except ValueError:
-            text = "Промежуток задан не верно. Пример: @{} *Delta* 3".format(bot_username)
-    else:
-        text = "У вас нет прав для изменения информации группы!"
-
-    await message.reply(text)
-
-
-@dp.message_handler(lambda message: message.text.startswith(f'@{bot_username} *Date*'),
-                    content_types=ContentType.TEXT)
-async def set_date(message: types.Message):
-    chat_id = message.chat.id
-
-    if await check_permissions(message):
-        date_str = message.text.replace("@{} *Date*".format(bot_username), "").strip()
-        try:
-            date = datetime.strptime(date_str, "%d/%m/%Y %H:%M")
-            date = date.replace(tzinfo=utc)
-            if date > datetime.now(timezone.utc):
-                with db.cursor() as cursor:
-                    cursor.execute("UPDATE chats SET date=%s WHERE chat_id=%s", (date, chat_id))
-                db.commit()
-                add_job(chat_id=chat_id, date=date, delta=None)
-                where_run[chat_id]['date'] = date
-                text = "Ближайшая дата смены фото чата успешно установлена."
-            else:
-                text = "Ближайшая дата смены оказалась в прошлом. Я не могу изменить прошлое!"
-        except ValueError:
-            text = "Дата введена неверна. Пример: " \
-                   "@{} *Date* 22/07/1941 04:00".format(bot_username)
-    else:
-        text = "У вас нет прав для изменения информации группы!"
-
-    await message.reply(text)
-
 
 if __name__ == '__main__':
     executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
