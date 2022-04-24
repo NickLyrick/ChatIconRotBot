@@ -134,34 +134,43 @@ def add_job(chat_id, date, delta):
         job.modify(args=[chat_id, delta])
 
 def table(data, columns):
-    table = plt.table(cellText=data, colLabels=columns, cellLoc='center',
-                          loc='center', colColours=['silver'] * len(columns))
-    plt.axis('off')
-    plt.grid('off')
-    table.auto_set_font_size(False)
-    table.set_fontsize(18)
-    table.scale(1, len(columns))
-    table.auto_set_column_width(col=list(range(len(columns))))
+    rows = [[*data[i:i+20]] for i in range(0, len(data), 20)]
+    if len(rows) > 1 and len(rows[-1]) < 5:
+        rows[-2].extend(rows[-1])
+        del rows[-1]
 
-    for _, cell in table.get_celld().items():
-        cell.set_linewidth(2)
+    images = []
+    for row in rows:
+        table = plt.table(cellText=row, colLabels=columns, cellLoc='center',
+                              loc='center', colColours=['silver'] * len(columns))
+        plt.axis('off')
+        plt.grid('off')
+        table.auto_set_font_size(False)
+        table.set_fontsize(18)
+        table.scale(1, len(columns))
+        table.auto_set_column_width(col=list(range(len(columns))))
 
-    # prepare for saving:
-    # draw canvas once
-    plt.gcf().canvas.draw()
-    # get bounding box of table
-    points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
-    # add 3 pixel spacing
-    points[0, :] -= 3
-    points[1, :] += 3
-    # get new bounding box in inches
-    nbbox = Bbox.from_extents(points / plt.gcf().dpi)
+        for _, cell in table.get_celld().items():
+            cell.set_linewidth(2)
 
-    img = BytesIO()
-    plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
-    img.seek(0)
+        # prepare for saving:
+        # draw canvas once
+        plt.gcf().canvas.draw()
+        # get bounding box of table
+        points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
+        # add 3 pixel spacing
+        points[0, :] -= 3
+        points[1, :] += 3
+        # get new bounding box in inches
+        nbbox = Bbox.from_extents(points / plt.gcf().dpi)
 
-    return img
+        img = BytesIO()
+        plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
+        img.seek(0)
+
+        images.append({"photo": img})
+
+    return typing.MediaGroup(images)
 
 def history_date(chat_id, date: datetime):
     date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
@@ -175,7 +184,7 @@ def history_date(chat_id, date: datetime):
         data = [(i, *record) for i, record in enumerate(cursor.fetchall(), start=1)]
 
     if len(data) > 0:
-        img = table(data, ["№", "Nickname", "Platinums"])
+        img = table(data, ["№", "Nickname", "Trophies"])
 
         return img
     else:
@@ -267,9 +276,9 @@ async def showqueue(message: types.Message):
     if len(data) == 0:
         await message.reply("Список пуст!")
     else:
-        img = table(data, ["№", "Nickname", "Game", "Platform"])
+        media = table(data, ["№", "Nickname", "Game", "Platform"])
 
-        await message.reply_photo(photo=img, caption=text)
+        await message.reply_media_group(media=media)
 
 
 @dp.message_handler(commands=['deletegame'])
@@ -314,12 +323,12 @@ async def top(message: types.Message):
         except ValueError:
             text = "Топ за всё время"
 
-    img = history_date(chat_id=chat_id, date=date)
+    media = history_date(chat_id=chat_id, date=date)
 
-    if img is None:
+    if media is None:
         await message.reply("Список пуст!")
     else:
-        await message.reply_photo(photo=img, caption=text)
+        await message.reply_media_group(media=media)
 
 @dp.message_handler(commands=['history'])
 async def history(message: types.Message):
@@ -332,15 +341,15 @@ async def history(message: types.Message):
         username = arguments.replace("@", "")
 
     with db.cursor() as cursor:
-        cursor.execute("SELECT game, date FROM history "
+        cursor.execute("SELECT game, date, platform FROM history "
                        "WHERE chat_id=%s AND hunter=%s ORDER BY date ASC",
                        (chat_id, username))
         data = []
         for i, record in enumerate(cursor.fetchall(), start=1):
-            game, date = record
+            game, date, platfrom = record
             date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
             date_str = date.strftime("%d.%m.%Y")
-            data.append((i, game, date_str))
+            data.append((i, game, date_str, platform))
 
 
     if len(data) == 0:
@@ -348,9 +357,9 @@ async def history(message: types.Message):
     else:
         text = f"Список всех трофеев {username}"
 
-        img = table(data, ["№", "Game", "Date"])
+        media = table(data, ["№", "Game", "Date", "Platform"])
 
-        await message.reply_photo(photo=img, caption=text)
+        await message.reply_media_group(media=media)
 
 
 
