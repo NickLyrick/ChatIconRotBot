@@ -133,14 +133,14 @@ def add_job(chat_id, date, delta):
         job.reschedule(trigger='interval', days=delta, start_date=date)
         job.modify(args=[chat_id, delta])
 
-def table(data, columns):
+def table(data, columns, caption: str = None):
     rows = [[*data[i:i+20]] for i in range(0, len(data), 20)]
     if len(rows) > 1 and len(rows[-1]) < 5:
         rows[-2].extend(rows[-1])
         del rows[-1]
 
-    images = []
-    for row in rows:
+    media = types.MediaGroup()
+    for i, row in enumerate(rows):
         table = plt.table(cellText=row, colLabels=columns, cellLoc='center',
                               loc='center', colColours=['silver'] * len(columns))
         plt.axis('off')
@@ -168,9 +168,12 @@ def table(data, columns):
         plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
         img.seek(0)
 
-        images.append({"photo": img})
+        if i == 0 and caption is not None:
+            media.attach_photo(img, caption)
+        else:
+            media.attach_photo(img)
 
-    return types.MediaGroup(images)
+    return media
 
 def history_date(chat_id, date: datetime):
     date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
@@ -276,7 +279,7 @@ async def showqueue(message: types.Message):
     if len(data) == 0:
         await message.reply("Список пуст!")
     else:
-        media = table(data, ["№", "Nickname", "Game", "Platform"])
+        media = table(data, ["№", "Nickname", "Game", "Platform"], text)
 
         await message.reply_media_group(media=media)
 
@@ -357,7 +360,7 @@ async def history(message: types.Message):
     else:
         text = f"Список всех трофеев {username}"
 
-        media = table(data, ["№", "Game", "Date", "Platform"])
+        media = table(data, ["№", "Game", "Date", "Platform"], text)
 
         await message.reply_media_group(media=media)
 
