@@ -45,25 +45,29 @@ scheduler = AsyncIOScheduler(timezone=utc)
 class PlatinumRecord:
     """PlatinumRecord is class for record of platinum"""
 
-    def __init__(self, hunter, game, photo_id):
+    def __init__(self, hunter, game, photo_id, platform):
         super(PlatinumRecord, self).__init__()
         self.hunter = hunter
         self.game = game
         self.photo_id = photo_id
+        self.platform = platform
 
     def __str__(self):
-        return "{} {}".format(self.hunter, self.game)
+        return "{} {} {}".format(self.hunter, self.game, self.platform)
 
     def __repr__(self):
-        return "PlatinumRecord({}, {}, {})".format(self.hunter, self.game, self.photo_id)
+        return "PlatinumRecord({}, {}, {}, {})".format(self.hunter, 
+                                                       self.game, 
+                                                       self.photo_id,
+                                                       self.platform)
 
     def __eq__(self, other):
-        return (self.hunter == other.hunter) and (self.game == other.game)
+        return (self.hunter == other.hunter) and (self.game == other.game) and (self.platform == other.platform)
 
 
 async def change_avatar(chat_id):
     with db.cursor() as cursor:
-        cursor.execute("SELECT hunter, game, photo_id FROM platinum "
+        cursor.execute("SELECT hunter, game, photo_id, platform FROM platinum "
                        "WHERE chat_id=%s AND hunter!=%s ORDER BY id ASC",
                        (chat_id, "*Default*",))
 
@@ -74,7 +78,7 @@ async def change_avatar(chat_id):
                            (chat_id, "*Default*", "*Default*",))
             row = cursor.fetchone()
             if row is not None:
-                text = "Новых платин нет. Ставлю стандартный аватар :("
+                text = "Новых трофеев нет. Ставлю стандартный аватар :("
                 file_id = row[0]
             else:
                 text = "Стандартный аватар не задан. Оставляю всё как есть."
@@ -83,10 +87,15 @@ async def change_avatar(chat_id):
         else:
             record = records[0]
 
-            text = "Поздравляем @{} с платиной в игре \"{}\" !".format(record.hunter,
-                                                                       record.game)
-            cursor.execute('''DELETE FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s''',
-                           (chat_id, record.hunter, record.game))
+            trophy = "платиной"
+            if record.platform == "Xbox":
+                trophy = "1000G"
+
+            text = "Поздравляем @{} с {} в игре \"{}\" !".format(record.hunter,
+                                                                 trophy,
+                                                                 record.game)
+            cursor.execute('''DELETE FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s AND platform''',
+                           (chat_id, record.hunter, record.game, record.platform))
             db.commit()
 
             file_id = record.photo_id
@@ -247,18 +256,18 @@ async def showsettings(message: types.Message):
 @dp.message_handler(commands=['showqueue'])
 async def showqueue(message: types.Message):
     chat_id = message.chat.id
-    text = "Очередь платин"
+    text = "Очередь трофеев"
     with db.cursor() as cursor:
-        cursor.execute("SELECT hunter, game, photo_id FROM platinum "
+        cursor.execute("SELECT hunter, game, platform FROM platinum "
                        "WHERE chat_id=%s AND hunter!=%s AND game!=%s ORDER BY id ASC",
                        (chat_id, "*Default*", "*Default*"))
 
-        data = [(i, *record[0:2]) for i, record in enumerate(cursor.fetchall(), start=1)]
+        data = [(i, *record) for i, record in enumerate(cursor.fetchall(), start=1)]
 
     if len(data) == 0:
         await message.reply("Список пуст!")
     else:
-        img = table(data, ["№", "Nickname", "Game"])
+        img = table(data, ["№", "Nickname", "Game", "Platform"])
 
         await message.reply_photo(photo=img, caption=text)
 
@@ -282,7 +291,7 @@ async def deletegame(message: types.Message):
                            (chat_id, record.hunter, record.game))
             cursor.execute('''DELETE FROM history WHERE chat_id=%s AND hunter=%s AND game=%s''',
                            (chat_id, record.hunter, record.game))
-            text = "Платина в игре {} игрока {} успешно удалена".format(record.game, record.hunter)
+            text = "Трофей в игре {} игрока {} успешно удален".format(record.game, record.hunter)
 
             db.commit()
 
@@ -337,7 +346,7 @@ async def history(message: types.Message):
     if len(data) == 0:
         await message.reply("Список пуст!")
     else:
-        text = f"Список всех платин {username}"
+        text = f"Список всех трофеев {username}"
 
         img = table(data, ["№", "Game", "Date"])
 
@@ -431,7 +440,11 @@ async def set_date(message: types.Message):
 async def add_record(message: types.Message):
     chat_id = message.chat.id
     username = message.from_user.username
-    game = message.caption.replace("@{}".format(bot_username), "").strip()
+    game = message.caption.replace("@{}".format(bot_username), "").replace("Xbox", "").replace("Playstation", "").strip()
+    platform = "Playstation"
+    if message.caption.find("Xbox"):
+        platform = "Xbox"
+
     file_id = message.photo[-1].file_id
 
     if game == "*Default*":
@@ -445,25 +458,31 @@ async def add_record(message: types.Message):
         text = random.choice(answers['photo'])
 
     if username is not None:
-        record = PlatinumRecord(username, game, file_id)
+        record = PlatinumRecord(username, game, file_id, platform)
         with db.cursor() as cursor:
             query = sql.SQL('''SELECT * FROM platinum
-                            WHERE chat_id=%s AND hunter={} AND game={}''').format(sql.Literal(record.hunter),
-                                                                                  sql.Literal(record.game))
+                            WHERE chat_id=%s AND hunter={} AND game={} AND platform={}''').format(sql.Literal(record.hunter),
+                                                                                                  sql.Literal(record.game),
+                                                                                                  sql.Literal(record.platform))
             cursor.execute(query, (chat_id,))
             if cursor.fetchone() is None:
-                query = sql.SQL("INSERT INTO platinum VALUES (%s, {}, {}, %s)").format(sql.Literal(record.hunter),
-                                                                                       sql.Literal(record.game))
+                query = sql.SQL("INSERT INTO platinum(chat_id, hunter, game, photo_id, platform) "
+                                "VALUES (%s, {}, {}, %s, {})").format(sql.Literal(record.hunter),
+                                                                      sql.Literal(record.game),
+                                                                      sql.Literal(record.platform))
                 cursor.execute(query, (chat_id, record.photo_id))
 
-                query = sql.SQL("INSERT INTO history(chat_id, hunter, game) VALUES (%s, {}, {})").format(sql.Literal(record.hunter),
-                    sql.Literal(record.game))
+                query = sql.SQL("INSERT INTO history(chat_id, hunter, game, platform) "
+                                "VALUES (%s, {}, {}, {})").format(sql.Literal(record.hunter),
+                                                                  sql.Literal(record.game),
+                                                                  sql.Literal(record.platform))
 
                 cursor.execute(query, (chat_id,))
             else:
                 query = sql.SQL("UPDATE platinum SET photo_id=%s "
-                                "WHERE chat_id=%s AND hunter={} AND game={}").format(sql.Literal(record.hunter),
-                                                                                     sql.Literal(record.game))
+                                "WHERE chat_id=%s AND hunter={} AND game={} AND platform={}").format(sql.Literal(record.hunter),
+                                                                                                     sql.Literal(record.game),
+                                                                                                     sql.Literal(record.platform))
                 cursor.execute(query, (record.photo_id, chat_id,))
         db.commit()
 
