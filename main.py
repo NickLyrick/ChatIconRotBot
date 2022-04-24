@@ -170,7 +170,7 @@ def table(data, columns):
 
         images.append({"photo": img})
 
-    return typing.MediaGroup(images)
+    return types.MediaGroup(images)
 
 def history_date(chat_id, date: datetime):
     date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
