@@ -94,7 +94,7 @@ async def change_avatar(chat_id):
             text = "Поздравляем @{} с {} в игре \"{}\" !".format(record.hunter,
                                                                  trophy,
                                                                  record.game)
-            cursor.execute('''DELETE FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s AND platform''',
+            cursor.execute('''DELETE FROM platinum WHERE chat_id=%s AND hunter=%s AND game=%s AND platform=%s''',
                            (chat_id, record.hunter, record.game, record.platform))
             db.commit()
 
