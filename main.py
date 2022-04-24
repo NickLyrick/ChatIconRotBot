@@ -444,7 +444,7 @@ async def set_date(message: types.Message):
 
     await message.reply(text)
 
-@dp.message_handler(lambda message: message.caption.startswith(f"@{bot_username}"),
+@dp.message_handler(lambda message: message.caption.startswith(f"@{bot_username}") if message.caption else False,
                     content_types=ContentType.PHOTO)
 async def add_record(message: types.Message):
     chat_id = message.chat.id
