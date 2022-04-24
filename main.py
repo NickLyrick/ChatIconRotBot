@@ -346,7 +346,7 @@ async def history(message: types.Message):
                        (chat_id, username))
         data = []
         for i, record in enumerate(cursor.fetchall(), start=1):
-            game, date, platfrom = record
+            game, date, platform = record
             date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
             date_str = date.strftime("%d.%m.%Y")
             data.append((i, game, date_str, platform))
