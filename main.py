@@ -454,7 +454,7 @@ async def add_record(message: types.Message):
     username = message.from_user.username
     game = message.caption.replace("@{}".format(bot_username), "").replace("Xbox", "").replace("Playstation", "").strip()
     platform = "Playstation"
-    if message.caption.find("Xbox"):
+    if message.caption.find("Xbox") != -1:
         platform = "Xbox"
 
     file_id = message.photo[-1].file_id
