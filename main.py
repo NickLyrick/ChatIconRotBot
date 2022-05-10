@@ -290,7 +290,7 @@ async def deletegame(message: types.Message):
     username = message.from_user.username
 
     with db.cursor() as cursor:
-        cursor.execute("SELECT hunter, game, photo_id FROM platinum "
+        cursor.execute("SELECT hunter, game, photo_id, platform FROM platinum "
                        "WHERE chat_id=%s AND hunter=%s ORDER BY id ASC",
                        (chat_id, username))
         records_user = [PlatinumRecord(*row) for row in cursor.fetchall()]
