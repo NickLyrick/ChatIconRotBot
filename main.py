@@ -35,7 +35,7 @@ dp = Dispatcher(bot)
 
 where_run = dict()
 
-db = psycopg2.connect(DATABASE_URL, sslmode='require')
+db = psycopg2.connect(DATABASE_URL)
 
 bot_username = ''
 
