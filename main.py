@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import random
 import logging
 from io import BytesIO
@@ -509,4 +510,4 @@ if __name__ == '__main__':
     try:
         executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
     except:
-        os._exit(0)
+        sys.exit("Error! Shutdown bot")
