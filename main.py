@@ -506,4 +506,7 @@ async def reply_by_text(message: types.Message):
     await message.reply(random.choice(answers['text']))
 
 if __name__ == '__main__':
-    executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
+    try:
+        executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
+    except:
+        os._exit(0)
