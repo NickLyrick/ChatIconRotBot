@@ -194,6 +194,19 @@ def history_date(chat_id, date: datetime):
     else:
         return None
 
+async def db_connection_check():
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except psycopg2.Error:
+        logging.error("Has lost connection to database")
+        logging.info("Try reconnect to database")
+
+        try:
+            db = psycopg2.connect(DATABASE_URL)
+        except psycopg2.Error:
+            logging.exception("Connect to database failed: ")
+
 
 async def on_startup(dispatcher):
     global bot_username
@@ -201,6 +214,8 @@ async def on_startup(dispatcher):
 
     bot_user = await bot.me
     bot_username = bot_user.username
+
+    scheduler.add_job(db_connection_check, "interval", minutes=1)
 
     with db.cursor() as cursor:
         cursor.execute("SELECT * FROM chats")
