@@ -216,7 +216,8 @@ async def on_startup(dispatcher):
     bot_user = await bot.me
     bot_username = bot_user.username
 
-    scheduler.add_job(db_connection_check, "interval", minutes=1)
+    start_db_check = datetime.now(timezone.utc) + timedelta(minutes=1)
+    scheduler.add_job(db_connection_check, "interval", minutes=1, start_date=start_db_check)
 
     with db.cursor() as cursor:
         cursor.execute("SELECT * FROM chats")
