@@ -195,6 +195,7 @@ def history_date(chat_id, date: datetime):
         return None
 
 async def db_connection_check():
+    global db
     try:
         with db.cursor() as cursor:
             cursor.execute("SELECT 1")
