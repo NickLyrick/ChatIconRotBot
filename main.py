@@ -166,7 +166,7 @@ def table(data, columns, caption: str = None):
         nbbox = Bbox.from_extents(points / plt.gcf().dpi)
 
         img = BytesIO()
-        plt.savefig(img, format='png', dpi=300, transparent=True, bbox_inches=nbbox)
+        plt.savefig(img, format='png', dpi=100, transparent=True, bbox_inches=nbbox)
         img.seek(0)
 
         if i == 0 and caption is not None:
