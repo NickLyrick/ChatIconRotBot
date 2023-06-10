@@ -19,7 +19,7 @@ kill_timeout = 5
 [[services]]
   http_checks = []
   internal_port = 8080
-  processes = ["app"]
+  processes = ["worker"]
   protocol = "tcp"
   script_checks = []
   [services.concurrency]
