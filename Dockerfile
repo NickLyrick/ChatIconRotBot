@@ -9,6 +9,8 @@ WORKDIR /opt/src
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 
+RUN apt update && apt -y install poppler-utils && apt clean --dry-run
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
