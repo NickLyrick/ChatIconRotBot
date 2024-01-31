@@ -17,10 +17,8 @@ kill_timeout = 5
   worker = "python main.py"
 
 [[services]]
-  http_checks = []
   processes = ["worker"]
   protocol = "tcp"
-  script_checks = []
   [services.concurrency]
     hard_limit = 25
     soft_limit = 20
@@ -34,9 +32,3 @@ kill_timeout = 5
   [[services.ports]]
     handlers = ["tls", "http"]
     port = 443
-
-  [[services.tcp_checks]]
-    grace_period = "1s"
-    interval = "15s"
-    restart_limit = 0
-    timeout = "2s"
