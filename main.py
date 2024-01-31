@@ -180,7 +180,7 @@ def history_date(chat_id, date: datetime):
                        "GROUP BY hunter "
                        "ORDER BY COUNT(id) DESC",
                        (chat_id, date))
-        data = [(i, *record) for i, record in enumerate(cursor.fetchall(), start=1)]
+        data = cursor.fetchall()
 
     if len(data) > 0:
         img = table(data, ["Nickname", "Trophies"])
@@ -287,7 +287,7 @@ async def showqueue(message: types.Message):
                        "WHERE chat_id=%s AND hunter!=%s AND game!=%s ORDER BY id ASC",
                        (chat_id, "*Default*", "*Default*"))
 
-        data = [(i, *record) for i, record in enumerate(cursor.fetchall(), start=1)]
+        data = cursor.fetchall()
 
     if len(data) == 0:
         await message.reply("Список пуст!")
@@ -361,11 +361,11 @@ async def history(message: types.Message):
                        "WHERE chat_id=%s AND hunter=%s ORDER BY date ASC",
                        (chat_id, username))
         data = []
-        for i, record in enumerate(cursor.fetchall(), start=1):
+        for record in cursor.fetchall():
             game, date, platform = record
             date = date.astimezone(tz=tzTimezone('Europe/Moscow'))
             date_str = date.strftime("%d.%m.%Y")
-            data.append((i, game, date_str, platform))
+            data.append((game, date_str, platform))
 
 
     if len(data) == 0:
