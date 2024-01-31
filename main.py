@@ -10,6 +10,7 @@ from pytz import utc, timezone as tzTimezone
 from datetime import datetime, timezone, timedelta
 
 import pandas as pd
+import PIL as pil
 import weasyprint as wsp
 from pdf2image import convert_from_bytes
 
@@ -135,6 +136,15 @@ def add_job(chat_id, date, delta):
         job.reschedule(trigger='interval', days=delta, start_date=date)
         job.modify(args=[chat_id, delta])
 
+def trim(src):
+    background = src.getpixel((0, 0))
+    border = pil.Image.new(src.mode, src.size, background)
+    diff = pil.ImageChops.difference(src, border)
+    bbox = diff.getbbox()
+    img = src.crop(bbox) if bbox else src
+
+    return img
+
 def table(data, columns, caption: str = None):
     df = pd.DataFrame(data, columns=columns)
 
@@ -150,8 +160,9 @@ def table(data, columns, caption: str = None):
 
     media = types.MediaGroup()
     for i, page in enumerate(pages):
+        trimmed = trim(page)
         img = BytesIO()
-        page.save(img, 'PNG')
+        trimmed.save(img, 'PNG')
         img.seek(0)
         if i == 0 and caption is not None:
             media.attach_photo(img, caption)
