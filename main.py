@@ -9,8 +9,9 @@ from io import BytesIO
 from pytz import utc, timezone as tzTimezone
 from datetime import datetime, timezone, timedelta
 
-from matplotlib import pyplot as plt
-from matplotlib.transforms import Bbox
+import pandas as pd
+import weasyprint as wsp
+from pdf2image import convert_from_bytes
 
 import psycopg2
 from psycopg2 import sql
@@ -135,40 +136,23 @@ def add_job(chat_id, date, delta):
         job.modify(args=[chat_id, delta])
 
 def table(data, columns, caption: str = None):
-    rows = [[*data[i:i+20]] for i in range(0, len(data), 20)]
-    if len(rows) > 1 and len(rows[-1]) < 5:
-        rows[-2].extend(rows[-1])
-        del rows[-1]
+    df = pd.DataFrame(data, columns=columns)
+
+    df.index += 1
+
+    css = wsp.CSS(string='''
+                    @page { size: 800px 715px; padding: 0px; margin: 0px; }
+                    table, td, tr, th { border: 1px solid black; }
+                    td, th { padding: 4px 8px; }
+    ''')
+    html = wsp.HTML(string=df.to_html())
+    pages = convert_from_bytes(html.write_pdf(stylesheets=[css]), dpi=100)
 
     media = types.MediaGroup()
-    for i, row in enumerate(rows):
-        table = plt.table(cellText=row, colLabels=columns, cellLoc='center',
-                              loc='center', colColours=['silver'] * len(columns))
-        plt.axis('off')
-        plt.grid('off')
-        table.auto_set_font_size(False)
-        table.set_fontsize(18)
-        table.scale(1, len(columns))
-        table.auto_set_column_width(col=list(range(len(columns))))
-
-        for _, cell in table.get_celld().items():
-            cell.set_linewidth(2)
-
-        # prepare for saving:
-        # draw canvas once
-        plt.gcf().canvas.draw()
-        # get bounding box of table
-        points = table.get_window_extent(plt.gcf()._cachedRenderer).get_points()
-        # add 3 pixel spacing
-        points[0, :] -= 3
-        points[1, :] += 3
-        # get new bounding box in inches
-        nbbox = Bbox.from_extents(points / plt.gcf().dpi)
-
+    for i, page in enumerate(pages):
         img = BytesIO()
-        plt.savefig(img, format='png', dpi=100, transparent=True, bbox_inches=nbbox)
+        page.save(img, 'PNG')
         img.seek(0)
-
         if i == 0 and caption is not None:
             media.attach_photo(img, caption)
         else:
