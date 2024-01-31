@@ -183,7 +183,7 @@ def history_date(chat_id, date: datetime):
         data = [(i, *record) for i, record in enumerate(cursor.fetchall(), start=1)]
 
     if len(data) > 0:
-        img = table(data, ["№", "Nickname", "Trophies"])
+        img = table(data, ["Nickname", "Trophies"])
 
         return img
     else:
@@ -292,7 +292,7 @@ async def showqueue(message: types.Message):
     if len(data) == 0:
         await message.reply("Список пуст!")
     else:
-        media = table(data, ["№", "Nickname", "Game", "Platform"], text)
+        media = table(data, ["Nickname", "Game", "Platform"], text)
 
         await message.reply_media_group(media=media)
 
@@ -373,7 +373,7 @@ async def history(message: types.Message):
     else:
         text = f"Список всех трофеев {username}"
 
-        media = table(data, ["№", "Game", "Date", "Platform"], text)
+        media = table(data, ["Game", "Date", "Platform"], text)
 
         await message.reply_media_group(media=media)
 
