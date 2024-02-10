@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.9
+ARG PYTHON_VERSION=3.12
 ARG PYTHON_BUILD_VERSION=$PYTHON_VERSION-bookworm
 
 FROM python:${PYTHON_BUILD_VERSION}
@@ -14,4 +14,4 @@ RUN apt update && apt -y install poppler-utils && apt clean --dry-run
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py answers.py .
+COPY main.py answers.py ./
