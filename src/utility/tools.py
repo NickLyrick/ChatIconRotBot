@@ -18,16 +18,32 @@ def trim(src):
 
 
 def table(data, columns):
+    # Create DataFrame
     df = pd.DataFrame(data, columns=columns)
-
     df.index += 1
 
+    # Generate CSS styles
     css = wsp.CSS(string='''
                     @page { size: 800px 715px; padding: 0px; margin: 0px; }
                     table, td, tr, th { border: 1px solid black; }
-                    td, th { padding: 4px 8px; }
+                    th { padding: 4px 8px; background-color: lightgray; } /* Gray background for header cells */
+                    td { padding: 4px 8px; } /* Styles for content cells */
                   ''')
+
+    # Apply styles for each column
+    for i, column in enumerate(df.columns):
+        if column in {'Nickname', 'Platform'}:
+            css += wsp.CSS(string=f'th:nth-child({i + 1}) {{ text-align: center; }}')  # Header
+            css += wsp.CSS(string=f'td:nth-child({i + 1}) {{ text-align: center; }}')  # Content
+        if column in {'Game'}:
+            css += wsp.CSS(string=f'th:nth-child({i + 1}) {{ text-align: center; }}')  # Header
+            css += wsp.CSS(string=f'td:nth-child({i + 1}) {{ text-align: left; }}')  # Content
+        else:  # Center align for other columns
+            css += wsp.CSS(string=f'td:nth-child({i + 1}) {{ text-align: center; }}')  # Content
+
+    # Generate HTML with CSS
     html = wsp.HTML(string=df.to_html())
+
     pages = convert_from_bytes(html.write_pdf(stylesheets=[css]), dpi=100)
 
     media = []
