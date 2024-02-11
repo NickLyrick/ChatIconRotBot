@@ -17,7 +17,7 @@ def trim(src):
     return img
 
 
-def table(data, columns, caption: str = None):
+def table(data, columns):
     df = pd.DataFrame(data, columns=columns)
 
     df.index += 1
@@ -26,19 +26,18 @@ def table(data, columns, caption: str = None):
                     @page { size: 800px 715px; padding: 0px; margin: 0px; }
                     table, td, tr, th { border: 1px solid black; }
                     td, th { padding: 4px 8px; }
-    ''')
+                  ''')
     html = wsp.HTML(string=df.to_html())
     pages = convert_from_bytes(html.write_pdf(stylesheets=[css]), dpi=100)
 
-    media = types.MediaGroup()
+    media = []
     for i, page in enumerate(pages):
         trimmed = trim(page)
         img = BytesIO()
         trimmed.save(img, 'PNG')
         img.seek(0)
-        if i == 0 and caption is not None:
-            media.attach_photo(img, caption)
-        else:
-            media.attach_photo(img)
+
+        page = types.InputMediaPhoto(type='photo', media=types.BufferedInputFile(img.read(), filename="i.png"))
+        media.append(page)
 
     return media

@@ -51,7 +51,7 @@ def get_settings() -> Settings:
             admin_ids=[
                 392087623
             ],
-            wellcome_message="Да начнется охота!",
+            wellcome_message="Я жажду платин!",
             chat_help_message=chat_help_text,
             user_help_message=user_help_text
         )
