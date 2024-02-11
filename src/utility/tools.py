@@ -32,7 +32,7 @@ def table(data, columns):
 
     # Apply styles for each column
     for i, column in enumerate(df.columns):
-        if column in {'Nickname', 'Platform', 'Trophies'}:
+        if column in {'Nickname', 'Platform', 'Trophies', 'Game', 'Date'}:
             css += wsp.CSS(string=f'th:nth-child({i + 1}) {{ text-align: center; }}')  # Header
             css += wsp.CSS(string=f'td:nth-child({i + 1}) {{ text-align: center; }}')  # Content
         if column in {'Game'}:
