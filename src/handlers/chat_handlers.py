@@ -22,13 +22,12 @@ async def show_queue(message: types.Message, request: Request) -> None:
                                  f"Ошибка: \n"
                                  f"<pre>\n{e}</pre>")
 
-    if len(data) == 0:
-        await message.reply("Список пуст!")
+    if len(data) > 0:
+        await message.reply(text="Список пуст!")
     else:
-        media = table(data, ["Nickname", "Game", "Platform"])
-        media[0].caption = "Очередь трофеев"
-
-        await message.reply_media_group(media=media)
+        media = table(data, columns=["Nickname", "Game", "Platform"], caption="Очередь трофеев")
+        if len(media) > 0:
+            await message.reply_media_group(media=media)
 
 
 @chat_router.message(Command("top"))
@@ -57,10 +56,9 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
                                  f"<pre>\n{e}</pre>")
 
     if len(data) > 0:
-        media = table(data, ["Nickname", "Trophies"])
-        media[0].caption = caption
-
-        await message.reply_media_group(media=media)
+        media = table(data, columns=["Nickname", "Trophies"], caption=caption)
+        if len(media) > 0:
+            await message.reply_media_group(media=media)
     else:
         await message.reply("Список пуст!")
 
@@ -85,10 +83,9 @@ async def get_history(message: types.Message, command: CommandObject, request: R
                                  f"Ошибка: \n"
                                  f"<pre>\n{e}</pre>")
 
-    if len(data) == 0:
-        await message.reply("Список пуст!")
+    if len(data) > 0:
+        media = table(data, columns=["Game", "Date", "Platform"], caption=f"Список всех трофеев @{username}")
+        if len(media) > 0:
+            await message.reply_media_group(media=media)
     else:
-        media = table(data, ["Game", "Date", "Platform"])
-        media[0].caption = f"Список всех трофеев @{username}"
-
-        await message.reply_media_group(media=media)
+        await message.reply("Список пуст!")
