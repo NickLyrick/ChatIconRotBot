@@ -22,28 +22,29 @@ def table(data, columns):
     df = pd.DataFrame(data, columns=columns)
     df.index += 1
 
-    # Generate CSS styles
-    css = wsp.CSS(string='''
+    css_text = '''
                     @page { size: 800px 715px; padding: 0px; margin: 0px; }
                     table, td, tr, th { border: 1px solid black; }
-                    th { padding: 4px 8px; background-color: lightgray; } /* Gray background for header cells */
-                    td { padding: 4px 8px; } /* Styles for content cells */
-                  ''')
+                    th { padding: 4px 8px; background-color: lightgray; }
+                    td { padding: 4px 8px; }
+                  '''
 
     # Apply styles for each column
     for i, column in enumerate(df.columns):
-        if column in {'Nickname', 'Platform', 'Trophies', 'Game', 'Date'}:
-            css += wsp.CSS(string=f'th:nth-child({i + 1}) {{ text-align: center; }}')  # Header
-            css += wsp.CSS(string=f'td:nth-child({i + 1}) {{ text-align: center; }}')  # Content
-        if column in {'Game'}:
-            css += wsp.CSS(string=f'th:nth-child({i + 1}) {{ text-align: center; }}')  # Header
-            css += wsp.CSS(string=f'td:nth-child({i + 1}) {{ text-align: left; }}')  # Content
+        if column in {'Nickname', 'Platform', 'Trophies', 'Date'}:
+            css_text += f'th:nth-child({i + 1}) {{ text-align: center; }}\n'  # Header
+            css_text += f'td:nth-child({i + 1}) {{ text-align: center; }}\n'  # Content
+        elif column in {'Game'}:
+            css_text += f'th:nth-child({i + 1}) {{ text-align: center; }}\n'  # Header
+            css_text += f'td:nth-child({i + 1}) {{ text-align: left; }}\n'  # Content
         else:  # Center align for other columns
-            css += wsp.CSS(string=f'td:nth-child({i + 1}) {{ text-align: center; }}')  # Content
+            css_text += f'td:nth-child({i + 1}) {{ text-align: center; }}\n'  # Content
 
+
+    # Generate CSS styles
+    css = wsp.CSS(string=css_text)
     # Generate HTML with CSS
     html = wsp.HTML(string=df.to_html())
-
     pages = convert_from_bytes(html.write_pdf(stylesheets=[css]), dpi=100)
 
     media = []
