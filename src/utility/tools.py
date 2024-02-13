@@ -25,19 +25,11 @@ def table(data, columns, caption: str = None):
     css_text = ("@page { size: 800px 715px; padding: 0px; margin: 0px; }\n"
                 "table, td, tr, th { border: 1px solid black; }\n"
                 "th { padding: 4px 8px; background-color: lightgray; }\n"
-                "td { padding: 4px 8px; }\n")
+                "td { padding: 4px 8px; }\n"
+                "th, td {text-align: center; }\n")
 
-    # Apply styles for each column
-    for i, column in enumerate(df.columns):
-        match column:
-            case 'Game':
-                css_text += f'th:nth-child({i + 1}) {{ text-align: center; }}\n'  # Header
-                css_text += f'td:nth-child({i + 1}) {{ text-align: left; }}\n'  # Content
-                continue
-            case _:
-                css_text += f'th:nth-child({i + 1}) {{ text-align: center; }}\n'  # Header
-                css_text += f'td:nth-child({i + 1}) {{ text-align: center; }}\n'  # Content
-                continue
+    if "Game" in columns:
+        css_text += f"td:nth-child({columns.index('Game')+2}) {{ text-align: left; }}\n" 
 
     # Generate CSS styles
     css = wsp.CSS(string=css_text)
