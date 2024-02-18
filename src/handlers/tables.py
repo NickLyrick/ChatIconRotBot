@@ -1,14 +1,15 @@
-from aiogram import Bot, Router, types
+from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 from datetime import datetime
-from src.database.connect import Request
+
+from src.database import Request
 
 from src.utility.tools import table
 
-chat_router = Router()
+table_router = Router()
 
 
-@chat_router.message(Command("show_queue"))
+@table_router.message(Command("show_queue"))
 async def show_queue(message: types.Message, request: Request) -> None:
     # TODO: decide what to do with users
     # await request.add_user_data(message.from_user.id, message.from_user.username)
@@ -30,7 +31,7 @@ async def show_queue(message: types.Message, request: Request) -> None:
         await message.reply(text="Список пуст!")
 
 
-@chat_router.message(Command("top"))
+@table_router.message(Command("top"))
 async def top(message: types.Message, command: CommandObject, request: Request) -> None:
     # TODO: decide what to do with users
     # await request.add_user_data(message.from_user.id, message.from_user.username)
@@ -63,7 +64,7 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
         await message.reply("Список пуст!")
 
 
-@chat_router.message(Command('history'))
+@table_router.message(Command('history'))
 async def get_history(message: types.Message, command: CommandObject, request: Request):
     # TODO: decide what to do with users
     # await request.add_user_data(message.from_user.id, message.from_user.username)

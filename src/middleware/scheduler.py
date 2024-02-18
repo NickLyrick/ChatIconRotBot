@@ -1,15 +1,15 @@
 from typing import Callable, Awaitable, Dict, Any
-from psycopg_pool import AsyncConnectionPool
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from src.database import Request
+from src.scheduler.scheduler import Scheduler
 
 
-class DBSession(BaseMiddleware):
-    def __init__(self, connector: AsyncConnectionPool):
+class SchedulerMW(BaseMiddleware):
+    def __init__(self, scheduler: AsyncIOScheduler):
         super().__init__()
-        self.connector = connector
+        self.scheduler = Scheduler(scheduler)
 
     async def __call__(
             self,
@@ -17,6 +17,5 @@ class DBSession(BaseMiddleware):
             event: TelegramObject,
             data: Dict[str, Any]
     ) -> Any:
-        async with self.connector.connection() as connect:
-            data["request"] = Request(connect)
-            return await handler(event, data)
+        data["scheduler"] = self.scheduler
+        return await handler(event, data)
