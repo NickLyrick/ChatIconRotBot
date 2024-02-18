@@ -55,7 +55,7 @@ async def set_date(message: types.Message, command: CommandObject, bot: Bot, req
 
                 date.strftime("%d.%m.%Y %H:%M")
                 text = (f"Ближайшая дата смены фото чата успешно установлена на: "
-                        f" {date.astimezone(tz=pytz.timezone('Europe/Moscow')).strftime("%d.%m.%Y %H:%M")}")
+                        f" {date.astimezone(tz=pytz.timezone('Europe/Moscow')).strftime('%d.%m.%Y %H:%M')}")
             else:
                 text = ("Ближайшая дата смены оказалась в прошлом. \n"
                         "Я не могу изменить прошлое!")
@@ -104,7 +104,7 @@ async def show_settings(message: types.Message, bot: Bot, request: Request):
         async with action_sender:
             date, delta, default_avatar = await request.get_chat_settings(chat_id=chat_id)
 
-            text = (f"Ближайшая дата смены: {date.strftime("%d.%m.%Y %H:%M")}.\n"
+            text = (f"Ближайшая дата смены: {date.strftime('%d.%m.%Y %H:%M')}.\n"
                     f"Промежуток между сменами: {delta}д.")
 
             if default_avatar is not None:
