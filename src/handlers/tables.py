@@ -24,11 +24,11 @@ async def show_queue(message: types.Message, request: Request) -> None:
                                  f"<pre>\n{e}</pre>")
 
     if len(data) > 0:
-        await message.reply(text="Список пуст!")
-    else:
         media = table(data, columns=["Nickname", "Game", "Platform"], caption="Очередь трофеев")
         if len(media) > 0:
             await message.reply_media_group(media=media)
+    else:
+        await message.reply(text="Список пуст!")
 
 
 @table_router.message(Command("top"))
