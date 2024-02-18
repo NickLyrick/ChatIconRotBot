@@ -1,3 +1,4 @@
+# TODO: replace by YAML
 quotations = [
     "\"We all make choices in life, but in the end our choices make us.\" Andrew Ryan, Bioshock",
     "\"Get over here!\" Scorpion, Mortal Kombat",

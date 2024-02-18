@@ -4,7 +4,7 @@ from aiogram.types import BotCommand
 # Import Chat Scopes
 from aiogram.types import BotCommandScopeAllGroupChats
 from aiogram.types import BotCommandScopeAllPrivateChats
-from aiogram.types import BotCommandScopeChat
+from aiogram.types import BotCommandScopeAllChatAdministrators
 
 from src.bot.settings import settings
 
@@ -56,7 +56,7 @@ bot_admin_commands = [
         description="Показать текущие настройки"
     ),
     BotCommand(
-        command="date",
+        command="set_date",
         description="Задать время ближайшей смены. Пример: \\date 22/07/1941 04:00"
     ),
     BotCommand(
@@ -74,4 +74,5 @@ async def set_bot_commands(bot: Bot) -> None:
     await bot.set_my_commands(user_chat_commands, BotCommandScopeAllPrivateChats())
 
     for admin_id in settings.bot.admin_ids:
-        await bot.set_my_commands(user_chat_commands + bot_admin_commands, BotCommandScopeChat(chat_id=admin_id))
+        await bot.set_my_commands(group_chat_commands + bot_admin_commands,
+                                  BotCommandScopeAllChatAdministrators(admin_id=admin_id))
