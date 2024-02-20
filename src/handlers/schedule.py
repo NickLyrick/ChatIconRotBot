@@ -1,13 +1,15 @@
+"""Schedule handlers module"""
+
+from datetime import datetime, timezone
+
 import pytz
 from aiogram.enums import ChatAction
 from aiogram.utils.chat_action import ChatActionSender
 
-import src.scheduler.jobs as jobs
-
 from aiogram import Bot, Router, types
 from aiogram.filters import Command, CommandObject, CommandStart
-from datetime import datetime, timezone
 
+import src.scheduler.jobs as jobs
 from src.database import Request
 from src.filters import my_filters
 from src.scheduler.scheduler import Scheduler
@@ -17,7 +19,10 @@ schedule_router = Router()
 
 @schedule_router.message(CommandStart(), my_filters.from_group_or_supergroup)
 async def start(message: types.Message, bot: Bot, request: Request, scheduler: Scheduler) -> None:
-    action_sender = ChatActionSender(action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
+    """Start the scheduler for the chat."""
+
+    action_sender = ChatActionSender(
+        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
 
     try:
         async with action_sender:
@@ -32,13 +37,16 @@ async def start(message: types.Message, bot: Bot, request: Request, scheduler: S
             await message.answer("Да начнётся охота!")
     except Exception as e:
         await message.answer(text=f"Ошибка: \n"
-                                  f"<pre>\n{e}</pre>")
+                             f"<pre>\n{e}</pre>")
 
 
 @schedule_router.message(Command('set_date'), my_filters.check_permissions)
 async def set_date(message: types.Message, command: CommandObject, bot: Bot, request: Request,
                    scheduler: Scheduler) -> None:
-    action_sender = ChatActionSender(action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
+    """Set the date for the chat avatar change."""
+
+    action_sender = ChatActionSender(
+        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
 
     try:
         chat_id = message.chat.id
@@ -69,7 +77,8 @@ async def set_date(message: types.Message, command: CommandObject, bot: Bot, req
 
 @schedule_router.message(Command('set_delta'), my_filters.check_permissions)
 async def set_delta(message: types.Message, command: CommandObject, bot: Bot, request: Request, scheduler: Scheduler):
-    action_sender = ChatActionSender(action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
+    action_sender = ChatActionSender(
+        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
     bot = await bot.get_me()
     bot_username = bot.username
 
@@ -84,7 +93,8 @@ async def set_delta(message: types.Message, command: CommandObject, bot: Bot, re
                 delta = where_run[chat_id]['delta']
                 await scheduler.add_job(func=jobs.change_avatar, bot=bot, request=request, chat_id=chat_id, date=None,
                                         delta=delta)
-                text = f"Промежуток между сменами фото чата успешно установлен на {delta}д."
+                text = f"Промежуток между сменами фото чата успешно установлен на {
+                    delta}д."
             else:
                 text = "Промежуток между сменами фото должен быть больше нуля и целым числом"
 
@@ -97,7 +107,10 @@ async def set_delta(message: types.Message, command: CommandObject, bot: Bot, re
 
 @schedule_router.message(Command('show_settings'), my_filters.from_group_or_supergroup, my_filters.check_permissions)
 async def show_settings(message: types.Message, bot: Bot, request: Request):
-    action_sender = ChatActionSender(action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
+    """Show the current chat settings."""
+
+    action_sender = ChatActionSender(
+        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
     chat_id = message.chat.id
 
     try:

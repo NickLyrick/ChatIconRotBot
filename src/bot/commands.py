@@ -1,3 +1,5 @@
+"""Set bot commands in all Scopes"""
+
 from aiogram import Bot
 from aiogram.types import BotCommand
 

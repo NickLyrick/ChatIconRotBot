@@ -1,11 +1,17 @@
+"""This module contains the Scheduler class."""
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
 class Scheduler:
+    """Scheduler class."""
+
     def __init__(self, scheduler: AsyncIOScheduler):
         self.scheduler = scheduler
 
     async def add_job(self, func, bot, request, chat_id, date, delta):
+        """Add a job to the scheduler."""
+
         job = self.scheduler.get_job(str(chat_id))
 
         if job is None:

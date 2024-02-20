@@ -1,3 +1,5 @@
+"""This module contains handlers for adding and deleting records in the database."""
+
 import random
 from aiogram import Bot, Router, types
 from aiogram import F
@@ -15,19 +17,24 @@ records_router = Router()
 
 
 async def check_permissions(message: types.Message) -> bool:
+    """Check if user has permissions to change group info."""
+
     try:
         member = await message.chat.get_member(message.from_user.id)
         return member.status == ChatMemberStatus.CREATOR or member.can_change_info
     except Exception as e:
         await message.reply(text=f"Не хватает прав для изменения информации группы!\n"
-                                 f"Ошибка: \n"
-                                 f"<pre>\n{e}</pre>")
+                            f"Ошибка: \n"
+                            f"<pre>\n{e}</pre>")
 
 
 # TODO: Split on 2 functions. Process Default avatar separately. Use my_filter.check_permissions and remove 17-24
 @records_router.message(F.photo, my_filters.platinum_check)
 async def add_record(message: types.Message, bot: Bot, request: Request) -> None:
-    action_sender = ChatActionSender(action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
+    """Add record to the database."""
+
+    action_sender = ChatActionSender(
+        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
 
     try:
         async with action_sender:
@@ -59,12 +66,15 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
             await message.reply(text)
     except Exception as e:
         await message.answer(text=f"Ошибка: \n"
-                                  f"<pre>\n{e}</pre>")
+                             f"<pre>\n{e}</pre>")
 
 
 @records_router.message(Command('delete_game'))
 async def delete_game(message: types.Message, bot: Bot, request: Request):
-    action_sender = ChatActionSender(action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
+    """Delete record from the database."""
+
+    action_sender = ChatActionSender(
+        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot)
 
     try:
         async with action_sender:
@@ -76,4 +86,4 @@ async def delete_game(message: types.Message, bot: Bot, request: Request):
             await message.reply(text)
     except Exception as e:
         await message.answer(text=f"Ошибка: \n"
-                                  f"<pre>\n{e}</pre>")
+                             f"<pre>\n{e}</pre>")

@@ -1,3 +1,5 @@
+"""Configuration for bot"""
+
 from dataclasses import dataclass
 
 chat_help_text = """
@@ -48,11 +50,15 @@ class DB:
 
 @dataclass
 class Settings:
+    """Configuration for bot and DataBase"""
+
     bot: Bot
     db: DB
 
 
 def get_settings() -> Settings:
+    """Get settings for bot and DataBase"""
+
     return Settings(
         bot=Bot(
             # TODO: remove TOKEN and ID's

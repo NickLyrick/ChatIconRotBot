@@ -1,3 +1,5 @@
+"""Middleware for the scheduler."""
+
 from typing import Callable, Awaitable, Dict, Any
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
@@ -7,6 +9,8 @@ from src.scheduler.scheduler import Scheduler
 
 
 class SchedulerMW(BaseMiddleware):
+    """Middleware for the scheduler."""
+
     def __init__(self, scheduler: AsyncIOScheduler):
         super().__init__()
         self.scheduler = Scheduler(scheduler)

@@ -1,3 +1,5 @@
+"""Initialize dispatcher"""
+
 import pytz
 from aiogram import Dispatcher
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -38,6 +40,8 @@ dispatcher = Dispatcher()
 
 
 async def get_dispatcher() -> Dispatcher:
+    """Method to get dispatcher instance with all routers and middlewares registered."""
+
     pool_connection = await get_pool()
     scheduler = AsyncIOScheduler(timezone=pytz.utc)
     scheduler.start()

@@ -1,3 +1,5 @@
+"""Middleware for working with the database."""
+
 from typing import Callable, Awaitable, Dict, Any
 from psycopg_pool import AsyncConnectionPool
 from aiogram import BaseMiddleware
@@ -7,6 +9,8 @@ from src.database import Request
 
 
 class DBSession(BaseMiddleware):
+    """Middleware for working with the database."""
+
     def __init__(self, connector: AsyncConnectionPool):
         super().__init__()
         self.connector = connector

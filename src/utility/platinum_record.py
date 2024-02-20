@@ -1,3 +1,6 @@
+"""This module contains the PlatinumRecord class"""
+
+
 class PlatinumRecord:
     """PlatinumRecord is class for record of platinum
 
@@ -68,4 +71,5 @@ class PlatinumRecord:
             bool: True if both objects are equal, False otherwise
 
         """
-        return (self.hunter == other.hunter) and (self.game == other.game) and (self.platform == other.platform)
+        return (self.hunter == other.hunter) and (self.game == other.game)  \
+            and (self.platform == other.platform)
