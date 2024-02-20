@@ -91,7 +91,8 @@ class Request:
 
         # TODO: replace by true chat id
         query = (f"SELECT hunter, game, platform FROM platinum "
-                 f"WHERE chat_id=-1001356987990 AND hunter!='*Default*' AND game!='*Default*' ORDER BY id")
+                 f"WHERE chat_id=-1001356987990 AND hunter!='*Default*' "
+                 f"AND game!='*Default*' ORDER BY id")
 
         async with self.connector.cursor() as cursor:
             await cursor.execute(query)
@@ -240,3 +241,14 @@ class Request:
                 self.connector.commit()
 
         return text
+
+    async def get_recodrs_data(self, chat_id):
+        """This method is used to get the records data from the database."""
+
+        async with self.connector.cursor() as cursor:
+            query = (f"SELECT hunter, game FROM platinum "
+                     f"WHERE chat_id={chat_id} AND hunter!='*Default*' "
+                     f"AND game!='*Default*' ORDER BY id")
+            await cursor.execute(query)
+
+            return [PlatinumRecord(*record) for record in await cursor.fetchall()]
