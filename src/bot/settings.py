@@ -36,7 +36,7 @@ class Bot:
 
     bot_token: str
     admin_ids: list[int]
-    wellcome_message: str
+    welcome_message: str
     chat_help_message: str
     user_help_message: str
 
@@ -63,17 +63,15 @@ def get_settings() -> Settings:
         bot=Bot(
             # TODO: remove TOKEN and ID's
             bot_token="6731907326:AAHNXMHa_tIWIXGpjeElHG4tc39PDO95jz0",
-            admin_ids=[
-                392087623
-            ],
-            wellcome_message="Я жажду платин!",
+            admin_ids=[392087623],
+            welcome_message="Я жажду платин!",
             chat_help_message=chat_help_text,
-            user_help_message=user_help_text
+            user_help_message=user_help_text,
         ),
         db=DB(
             # TODO: insert DATABASE_URL
             database_url="host=127.0.0.1 port=5432 dbname=platinum user=postgres password=210294alexander_I4"
-        )
+        ),
     )
 
 

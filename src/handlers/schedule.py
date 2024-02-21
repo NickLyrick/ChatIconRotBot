@@ -3,11 +3,10 @@
 from datetime import datetime, timezone
 
 import pytz
-from aiogram.enums import ChatAction
-from aiogram.utils.chat_action import ChatActionSender
-
 from aiogram import Bot, Router, types
+from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.utils.chat_action import ChatActionSender
 
 import src.scheduler.jobs as jobs
 from src.database import Request

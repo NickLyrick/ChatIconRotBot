@@ -71,5 +71,8 @@ class PlatinumRecord:
             bool: True if both objects are equal, False otherwise
 
         """
-        return (self.hunter == other.hunter) and (self.game == other.game)  \
+        return (
+            (self.hunter == other.hunter)
+            and (self.game == other.game)
             and (self.platform == other.platform)
+        )

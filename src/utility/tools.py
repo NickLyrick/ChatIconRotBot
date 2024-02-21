@@ -1,13 +1,12 @@
 """This module contains various tools for working with images and PDFs."""
 
 from io import BytesIO
-from PIL import ImageChops, Image
-from aiogram import types
 
-import weasyprint as wsp
 import pandas as pd
-
+import weasyprint as wsp
+from aiogram import types
 from pdf2image import convert_from_bytes
+from PIL import Image, ImageChops
 
 
 def trim(src):

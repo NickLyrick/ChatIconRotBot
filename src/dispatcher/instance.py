@@ -6,15 +6,15 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.database.connect import get_pool
 
+# Routers
+from src.handlers.basic import basic
+from src.handlers.records import records_router
+from src.handlers.schedule import schedule_router
+from src.handlers.tables import table_router
+
 # Middlewares
 from src.middleware.db import DBSession
 from src.middleware.scheduler import SchedulerMW
-
-# Routers
-from src.handlers.basic import basic
-from src.handlers.tables import table_router
-from src.handlers.schedule import schedule_router
-from src.handlers.records import records_router
 
 
 def register_routers(dp: Dispatcher) -> None:
@@ -26,9 +26,9 @@ def register_routers(dp: Dispatcher) -> None:
     dp.include_router(records_router)
 
 
-def register_middlewares(dp: Dispatcher,
-                         db_middleware: DBSession,
-                         scheduler_middleware: SchedulerMW) -> None:
+def register_middlewares(
+    dp: Dispatcher, db_middleware: DBSession, scheduler_middleware: SchedulerMW
+) -> None:
     """Register Middlewares"""
 
     dp.update.middleware.register(db_middleware)
@@ -46,9 +46,11 @@ async def get_dispatcher() -> Dispatcher:
     scheduler = AsyncIOScheduler(timezone=pytz.utc)
     scheduler.start()
 
-    register_middlewares(dp=dispatcher,
-                         db_middleware=DBSession(connector=pool_connection),
-                         scheduler_middleware=SchedulerMW(scheduler=scheduler))
+    register_middlewares(
+        dp=dispatcher,
+        db_middleware=DBSession(connector=pool_connection),
+        scheduler_middleware=SchedulerMW(scheduler=scheduler),
+    )
     register_routers(dp=dispatcher)
 
     return dispatcher

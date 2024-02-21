@@ -1,22 +1,22 @@
 """Module with handlers for wiki."""
 
+import wikipedia
 from aiogram import Router, types
 from aiogram.filters import Command
-import wikipedia
-from wikipedia import exceptions as wikiexceptions
+from wikipedia import exceptions as wiki_exceptions
 
 from src.database import Request
 
 wiki_router = Router()
 
 
-@wiki_router.message(Command('games_info'))
-async def games_info(message: types.Message, reqest: Request):
+@wiki_router.message(Command("games_info"))
+async def games_info(message: types.Message, request: Request):
     """Send information about games from the queue to the chat."""
 
     chat_id = message.chat.id
 
-    data = await reqest.get_queue(chat_id)
+    data = await request.get_queue(chat_id)
 
     text = ""
     for i, record in enumerate(data, start=1):
@@ -25,14 +25,14 @@ async def games_info(message: types.Message, reqest: Request):
         try:
             page = wikipedia.page(game)
             url = f"[{game}]({page.url})"
-        except wikiexceptions.PageError:
+        except wiki_exceptions.PageError:
             results = wikipedia.search(game)
             try:
                 page = wikipedia.page(results[0])
                 url = f"[{game}]({page.url} )"
-            except wikiexceptions.PageError:
+            except wiki_exceptions.PageError:
                 url = "Информация не найдена"
-        except wikiexceptions.DisambiguationError:
+        except wiki_exceptions.DisambiguationError:
             url = "Информация не найдена"
 
         text += f"{i}) {url} \n"

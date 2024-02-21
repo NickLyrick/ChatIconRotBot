@@ -2,8 +2,8 @@
 which is responsible for handling all the database queries."""
 
 from datetime import datetime
-import psycopg_pool
 
+import psycopg_pool
 from psycopg_pool import AsyncConnectionPool
 from pytz import timezone as tz
 
