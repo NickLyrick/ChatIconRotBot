@@ -6,10 +6,10 @@ from aiogram.filters import Command, CommandStart
 from src.bot.settings import settings
 from src.filters import my_filters
 
-basic = Router()
+basic_router = Router()
 
 
-@basic.startup()
+@basic_router.startup()
 async def bot_started(bot: Bot) -> None:
     """Send message to all admins when bot is started."""
 
@@ -17,7 +17,7 @@ async def bot_started(bot: Bot) -> None:
         await bot.send_message(admin_id, text="Бот запущен!")
 
 
-@basic.shutdown()
+@basic_router.shutdown()
 async def bot_stopped(bot: Bot) -> None:
     """Send message to all admins when bot is stopped."""
 
@@ -25,7 +25,7 @@ async def bot_stopped(bot: Bot) -> None:
         await bot.send_message(admin_id, text="Бот остановлен!")
 
 
-@basic.message(CommandStart(), my_filters.from_private_chat)
+@basic_router.message(CommandStart(), my_filters.from_private_chat)
 async def command_start(message: types.Message) -> None:
     """Send welcome message to user when he starts chat with bot."""
 
@@ -33,7 +33,7 @@ async def command_start(message: types.Message) -> None:
     await message.answer(settings.bot.welcome_message)
 
 
-@basic.message(Command("help"))
+@basic_router.message(Command("help"))
 async def help_command(message: types.Message) -> None:
     """Send help message to user when he uses /help command."""
 

@@ -7,23 +7,25 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.database.connect import get_pool
 
 # Routers
-from src.handlers.basic import basic
-from src.handlers.records import records_router
-from src.handlers.schedule import schedule_router
-from src.handlers.tables import table_router
+from src.handlers.basic_handlers import basic_router
+from src.handlers.records_handlers import records_router
+from src.handlers.schedule_handlers import schedule_router
+from src.handlers.tables_handlers import table_router
+from src.handlers.wiki_handlers import wiki_router
 
 # Middlewares
-from src.middleware.db import DBSession
-from src.middleware.scheduler import SchedulerMW
+from src.middleware.db_middleware import DBSession
+from src.middleware.scheduler_middleware import SchedulerMW
 
 
 def register_routers(dp: Dispatcher) -> None:
     """Register Routers"""
 
-    dp.include_router(basic)
+    dp.include_router(basic_router)
     dp.include_router(table_router)
     dp.include_router(schedule_router)
     dp.include_router(records_router)
+    dp.include_router(wiki_router)
 
 
 def register_middlewares(

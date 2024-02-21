@@ -15,10 +15,13 @@ async def main() -> None:
 
     # Configure logging
     logging.basicConfig(level=logging.INFO)
+    logging.info("Bot started")
 
     await set_bot_commands(bot)
+    logging.info("Bot commands set")
 
     dispatcher = await get_dispatcher()
+    logging.info("Dispatcher created")
 
     await dispatcher.start_polling(bot)
 
@@ -26,5 +29,7 @@ async def main() -> None:
 if __name__ == "__main__":
     try:
         asyncio.run(main())
+    except KeyboardInterrupt:
+        asyncio.run(bot.session.close())
     finally:
-        asyncio.run(bot.session.close)
+        asyncio.run(bot.session.close())

@@ -242,7 +242,7 @@ class Request:
 
         return text
 
-    async def get_recodrs_data(self, chat_id):
+    async def get_records_data(self, chat_id):
         """This method is used to get the records data from the database."""
 
         async with self.connector.cursor() as cursor:

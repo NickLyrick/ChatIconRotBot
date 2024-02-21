@@ -16,7 +16,15 @@ async def games_info(message: types.Message, request: Request):
 
     chat_id = message.chat.id
 
-    data = await request.get_queue(chat_id)
+    try:
+        data = await request.get_records_data(chat_id)
+    except Exception as e:
+        await message.reply(
+            text=f"Не удалось получить информацию о играх\n\n"
+            f"Ошибка: \n"
+            f"<pre>\n{e}</pre>"
+        )
+        return
 
     text = ""
     for i, record in enumerate(data, start=1):
@@ -37,4 +45,6 @@ async def games_info(message: types.Message, request: Request):
 
         text += f"{i}) {url} \n"
 
-    await message.reply(text, parse_mode="Markdown")
+    if len(text) == 0:
+        text = "Информация не найдена"
+    await message.reply(text=text, parse_mode="Markdown")
