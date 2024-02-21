@@ -1,5 +1,7 @@
 """Initialize dispatcher"""
 
+import logging
+
 import pytz
 from aiogram import Dispatcher
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -37,22 +39,25 @@ def register_middlewares(
     dp.message.middleware.register(scheduler_middleware)
 
 
-# Initialize bot and dispatcher
-dispatcher = Dispatcher()
-
-
-async def get_dispatcher() -> Dispatcher:
-    """Method to get dispatcher instance with all routers and middlewares registered."""
+async def on_startup() -> None:
+    """On startup"""
 
     pool_connection = await get_pool()
+    logging.info("Connected to database")
+
     scheduler = AsyncIOScheduler(timezone=pytz.utc)
-    scheduler.start()
+    logging.info("Scheduler created")
 
     register_middlewares(
         dp=dispatcher,
         db_middleware=DBSession(connector=pool_connection),
         scheduler_middleware=SchedulerMW(scheduler=scheduler),
     )
-    register_routers(dp=dispatcher)
+    logging.info("Middlewares registered")
 
-    return dispatcher
+    register_routers(dp=dispatcher)
+    logging.info("Routers registered")
+
+
+dispatcher = Dispatcher()
+dispatcher.startup.register(on_startup)

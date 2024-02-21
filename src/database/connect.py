@@ -1,6 +1,7 @@
 """This module contains the Request class, 
 which is responsible for handling all the database queries."""
 
+import logging
 from datetime import datetime
 
 import psycopg_pool
@@ -23,6 +24,22 @@ class Request:
 
     def __init__(self, connector: psycopg_pool.AsyncConnectionPool.connection):
         self.connector = connector
+
+    async def check_db_connection(self) -> bool:
+        """This method is used to check the connection to the database."""
+        
+        try:
+            async with self.connector.cursor() as cursor:
+                await cursor.execute("SELECT 1")
+        except psycopg_pool.Error as e:
+            logging.error(f"Has lost connection to database:\n <pre>\n{e}</pre>")
+            logging.info("Try reconnect to database")
+
+            try:
+                self.connector = get_pool()
+            except psycopg_pool.Error as e:
+                logging.exception(f"Connect to database failed:\n "
+                                  f"<pre>\n{e}</pre>")
 
     async def get_chats(self) -> dict:
         """This method is used to get all the chats from the database."""

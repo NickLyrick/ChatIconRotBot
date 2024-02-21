@@ -3,9 +3,8 @@
 import asyncio
 import logging
 
-from src.bot.commands import set_bot_commands
 from src.bot.instance import bot
-from src.dispatcher.instance import get_dispatcher
+from src.dispatcher.instance import dispatcher
 
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -16,12 +15,6 @@ async def main() -> None:
     # Configure logging
     logging.basicConfig(level=logging.INFO)
     logging.info("Bot started")
-
-    await set_bot_commands(bot)
-    logging.info("Bot commands set")
-
-    dispatcher = await get_dispatcher()
-    logging.info("Dispatcher created")
 
     await dispatcher.start_polling(bot)
 

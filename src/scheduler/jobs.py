@@ -26,3 +26,9 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int):
     t_delta = datetime.timedelta(days=where_run[chat_id]["delta"])
     date = where_run[chat_id]["date"] + t_delta
     await request.set_chat_date(chat_id, date)
+
+
+async def check_db_connection(request: Request):
+    """Check database connection."""
+
+    await request.check_connection()
