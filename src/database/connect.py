@@ -1,24 +1,50 @@
-import psycopg_pool
+"""This module contains the Request class, 
+which is responsible for handling all the database queries."""
 
-from pytz import timezone as tz
+import logging
 from datetime import datetime
+
+import psycopg_pool
 from psycopg_pool import AsyncConnectionPool
+from pytz import timezone as tz
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
 
 async def get_pool():
+    """This function is used to get the connection pool to the database."""
+
     return AsyncConnectionPool(settings.db.database_url)
 
 
 # TODO: don't use raw SQL queries
 class Request:
+    """This class is responsible for handling all the database queries."""
+
     def __init__(self, connector: psycopg_pool.AsyncConnectionPool.connection):
         self.connector = connector
 
+    async def check_db_connection(self) -> bool:
+        """This method is used to check the connection to the database."""
+        
+        try:
+            async with self.connector.cursor() as cursor:
+                await cursor.execute("SELECT 1")
+        except psycopg_pool.Error as e:
+            logging.error(f"Has lost connection to database:\n <pre>\n{e}</pre>")
+            logging.info("Try reconnect to database")
+
+            try:
+                self.connector = get_pool()
+            except psycopg_pool.Error as e:
+                logging.exception(f"Connect to database failed:\n "
+                                  f"<pre>\n{e}</pre>")
+
     async def get_chats(self) -> dict:
-        query = f"SELECT * FROM chats"
+        """This method is used to get all the chats from the database."""
+
+        query = "SELECT * FROM chats"
         async with self.connector.cursor() as cursor:
             await cursor.execute(query)
 
@@ -26,6 +52,8 @@ class Request:
                     for chat_id, date, delta in await cursor.fetchall()}
 
     async def set_chat_date(self, chat_id, date) -> None:
+        """This method is used to set the date of the chat in the database."""
+
         query = f"UPDATE chats SET date='{date}' WHERE chat_id={chat_id}"
         async with self.connector.cursor() as cursor:
             await cursor.execute(query)
@@ -33,14 +61,19 @@ class Request:
         await self.connector.commit()
 
     async def set_chat_delta(self, chat_id, delta) -> None:
+        """This method is used to set the delta of the chat in the database."""
+
         query = f"UPDATE chats SET delta={delta} WHERE chat_id={chat_id}"
         async with self.connector.cursor() as cursor:
             await cursor.execute(query)
             await self.connector.commit()
 
     async def get_chat_settings(self, chat_id) -> list:
+        """This method is used to get the settings of the chats from the database."""
+
         async with self.connector.cursor() as cursor:
-            get_chat_settings_query = f"SELECT date, delta FROM chats WHERE chat_id={chat_id}"
+            get_chat_settings_query = f"SELECT date, delta FROM chats WHERE chat_id={
+                chat_id}"
             get_chat_default_avatar_query = (f"SELECT photo_id FROM platinum "
                                              f"WHERE chat_id={chat_id} AND hunter='*Default*'")
 
@@ -53,6 +86,8 @@ class Request:
             return [date, delta, default_avatar_record]
 
     async def add_chat_data(self, chat_id, date, delta) -> None:
+        """This method is used to add the chat data to the database."""
+
         query = (f"INSERT INTO chats VALUES({chat_id},{date},{delta})"
                  f"ON CONFLICT (chat_id) DO UPDATE SET (date, delta) = ({date}, {delta})")
         async with self.connector.cursor() as cursor:
@@ -60,6 +95,8 @@ class Request:
         await self.connector.commit()
 
     async def add_user_data(self, user_id, user_name) -> None:
+        """This method is used to add the user data to the database."""
+
         pass
         # TODO: decide what to do with user_id
         # query = f"INSERT INTO users (user_id, user_name) VALUES ({user_id}, '{user_name}')" \
@@ -67,15 +104,20 @@ class Request:
         # await self.connector.execute(query)
 
     async def get_queue(self, chat_id):
+        """This method is used to get the queue from the database."""
+
         # TODO: replace by true chat id
         query = (f"SELECT hunter, game, platform FROM platinum "
-                 f"WHERE chat_id=-1001356987990 AND hunter!='*Default*' AND game!='*Default*' ORDER BY id")
+                 f"WHERE chat_id=-1001356987990 AND hunter!='*Default*' "
+                 f"AND game!='*Default*' ORDER BY id")
 
         async with self.connector.cursor() as cursor:
             await cursor.execute(query)
             return await cursor.fetchall()
 
     async def get_avatar(self, chat_id):
+        """This method is used to get the avatar file_id from the database."""
+
         query = (f"SELECT hunter, game, photo_id, platform FROM platinum "
                  f"WHERE chat_id={chat_id} AND hunter!='*Default*' ORDER BY id")
 
@@ -102,7 +144,8 @@ class Request:
                 trophy = "платиной"
                 if record.platform == "Xbox":
                     trophy = "1000G"
-                text = f'Поздравляем @{record.hunter} с {trophy} в игре \"{record.game}\" !'
+                text = f'Поздравляем @{record.hunter} с {
+                    trophy} в игре \"{record.game}\" !'
                 file_id = record.photo_id
 
                 query_delete_avatar = (
@@ -116,6 +159,8 @@ class Request:
             return file_id, text
 
     async def get_top(self, chat_id, date: datetime):
+        """This method is used to get the top from the database."""
+
         timezone = tz("Europe/Moscow")
         date = date.astimezone(tz=timezone)
         print(date)
@@ -130,6 +175,8 @@ class Request:
             return await cursor.fetchall()
 
     async def get_history(self, chat_id, hunter: str):
+        """This method is used to get the history from the database."""
+
         # TODO: replace by true chat id
         query = (f"SELECT game, date, platform FROM history "
                  f"WHERE chat_id=-1001356987990 AND hunter='{hunter}' ORDER BY date")
@@ -146,6 +193,8 @@ class Request:
             return data
 
     async def add_record(self, chat_id, record: PlatinumRecord) -> None:
+        """This method is used to add the record to the database."""
+
         async with self.connector.cursor() as cursor:
             select_query = (
                 "SELECT * FROM platinum "
@@ -182,6 +231,8 @@ class Request:
             await self.connector.commit()
 
     async def delete_record(self, chat_id, username) -> str:
+        """This method is used to delete the record from the database."""
+
         async with self.connector.cursor() as cursor:
             query = (f"SELECT hunter, game, photo_id, platform FROM platinum "
                      f"WHERE chat_id={chat_id} AND hunter='{username}' ORDER BY id")
@@ -201,8 +252,20 @@ class Request:
 
                 await cursor.execute(delete_platinum_query)
                 await cursor.execute(delete_history_query)
-                text = f"Трофей в игре {record.game} игрока @{record.hunter} успешно удален"
+                text = f"Трофей в игре {
+                    record.game} игрока @{record.hunter} успешно удален"
 
                 self.connector.commit()
 
         return text
+
+    async def get_records_data(self, chat_id):
+        """This method is used to get the records data from the database."""
+
+        async with self.connector.cursor() as cursor:
+            query = (f"SELECT hunter, game FROM platinum "
+                     f"WHERE chat_id={chat_id} AND hunter!='*Default*' "
+                     f"AND game!='*Default*' ORDER BY id")
+            await cursor.execute(query)
+
+            return [PlatinumRecord(*record) for record in await cursor.fetchall()]

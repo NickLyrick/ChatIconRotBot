@@ -1,13 +1,17 @@
-import weasyprint as wsp
-import pandas as pd
+"""This module contains various tools for working with images and PDFs."""
 
-from aiogram import types
-from PIL import ImageChops, Image
 from io import BytesIO
+
+import pandas as pd
+import weasyprint as wsp
+from aiogram import types
 from pdf2image import convert_from_bytes
+from PIL import Image, ImageChops
 
 
 def trim(src):
+    """Trim the image."""
+
     background = src.getpixel((0, 0))
     border = Image.new(src.mode, src.size, background)
     diff = ImageChops.difference(src, border)
@@ -18,6 +22,8 @@ def trim(src):
 
 
 def table(data, columns, caption: str = None):
+    """Generate a table from the data."""
+
     # Create DataFrame
     df = pd.DataFrame(data, columns=columns)
     df.index += 1
@@ -29,7 +35,8 @@ def table(data, columns, caption: str = None):
                 "th, td {text-align: center; }\n")
 
     if "Game" in columns:
-        css_text += f"td:nth-child({columns.index('Game')+2}) {{ text-align: left; }}\n" 
+        css_text += f"td:nth-child({columns.index('Game') +
+                                    2}) {{ text-align: left; }}\n"
 
     # Generate CSS styles
     css = wsp.CSS(string=css_text)
@@ -48,7 +55,8 @@ def table(data, columns, caption: str = None):
             page = types.InputMediaPhoto(type='photo', media=types.BufferedInputFile(img.read(), filename="i.png"),
                                          caption=caption)
         else:
-            page = types.InputMediaPhoto(type='photo', media=types.BufferedInputFile(img.read(), filename="i.png"))
+            page = types.InputMediaPhoto(
+                type='photo', media=types.BufferedInputFile(img.read(), filename="i.png"))
         media.append(page)
 
     return media
