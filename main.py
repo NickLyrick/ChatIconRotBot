@@ -2,11 +2,13 @@
 
 import asyncio
 import logging
+import os
 
 from src.bot.instance import bot
 from src.dispatcher.instance import dispatcher
 
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+if os.name == "nt":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 async def main() -> None:

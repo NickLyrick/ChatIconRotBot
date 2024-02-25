@@ -3,9 +3,10 @@
 import logging
 
 import pytz
-from aiogram import Dispatcher
+from aiogram import Bot, Dispatcher
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from src.database import Request
 from src.database.connect import get_pool
 
 # Routers
@@ -18,16 +19,17 @@ from src.handlers.wiki_handlers import wiki_router
 # Middlewares
 from src.middleware.db_middleware import DBSession
 from src.middleware.scheduler_middleware import SchedulerMW
+from src.scheduler.scheduler import Scheduler
+
+dispatcher = Dispatcher()
 
 
 def register_routers(dp: Dispatcher) -> None:
     """Register Routers"""
 
-    dp.include_router(basic_router)
-    dp.include_router(table_router)
-    dp.include_router(schedule_router)
-    dp.include_router(records_router)
-    dp.include_router(wiki_router)
+    dp.include_routers(
+        basic_router, table_router, schedule_router, records_router, wiki_router
+    )
 
 
 def register_middlewares(
@@ -39,15 +41,25 @@ def register_middlewares(
     dp.message.middleware.register(scheduler_middleware)
 
 
-async def on_startup() -> None:
+@dispatcher.startup()
+async def on_startup(dispatcher: Dispatcher, bot: Bot) -> None:
     """On startup"""
 
+    # Create request manager
     pool_connection = await get_pool()
-    logging.info("Connected to database")
+    logging.info("Pool created")
 
-    scheduler = AsyncIOScheduler(timezone=pytz.utc)
+    # Create scheduler
+    scheduler = Scheduler(AsyncIOScheduler(timezone=pytz.utc))
     logging.info("Scheduler created")
 
+    async with pool_connection.connection() as connection:
+        request = Request(connection)
+
+    await scheduler.start(bot=bot, request=request)
+    logging.info("Scheduler started")
+
+    # Register middlewares
     register_middlewares(
         dp=dispatcher,
         db_middleware=DBSession(connector=pool_connection),
@@ -57,7 +69,3 @@ async def on_startup() -> None:
 
     register_routers(dp=dispatcher)
     logging.info("Routers registered")
-
-
-dispatcher = Dispatcher()
-dispatcher.startup.register(on_startup)

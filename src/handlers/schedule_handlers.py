@@ -8,7 +8,6 @@ from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.utils.chat_action import ChatActionSender
 
-import src.scheduler.jobs as jobs
 from src.database import Request
 from src.filters import my_filters
 from src.scheduler.scheduler import Scheduler
@@ -26,11 +25,10 @@ async def start(message: types.Message, bot: Bot, request: Request, scheduler: S
     try:
         async with action_sender:
             chat_id = message.chat.id
-            where_run = await request.get_chats()
-            if chat_id not in where_run:
+            if chat_id not in scheduler.where_run:
                 date = datetime.now(timezone.utc)
                 await request.add_chat_data(chat_id=chat_id, date=date, delta=1)
-                await scheduler.add_job(func=jobs.change_avatar, bot=bot, request=request, chat_id=chat_id, date=date,
+                await scheduler.add_change_avatar_job(bot=bot, request=request, chat_id=chat_id, date=date,
                                         delta=1)
 
             await message.answer("Да начнётся охота!")
@@ -57,7 +55,8 @@ async def set_date(message: types.Message, command: CommandObject, bot: Bot, req
 
             if date > datetime.now(timezone.utc):
                 await request.set_chat_date(chat_id, date)
-                await scheduler.add_job(func=jobs.change_avatar, bot=bot, request=request, chat_id=chat_id, date=date,
+                scheduler.where_run = await request.get_chats()
+                await scheduler.add_change_avatar_job(bot=bot, request=request, chat_id=chat_id, date=date,
                                         delta=None)
 
                 date.strftime("%d.%m.%Y %H:%M")
@@ -88,9 +87,9 @@ async def set_delta(message: types.Message, command: CommandObject, bot: Bot, re
         async with action_sender:
             if delta > 0:
                 await request.set_chat_delta(chat_id=chat_id, delta=delta)
-                where_run = await request.get_chats()
-                delta = where_run[chat_id]['delta']
-                await scheduler.add_job(func=jobs.change_avatar, bot=bot, request=request, chat_id=chat_id, date=None,
+                scheduler.where_run = await request.get_chats()
+                delta = scheduler.where_run[chat_id]['delta']
+                await scheduler.add_change_avatar_job(bot=bot, request=request, chat_id=chat_id, date=None,
                                         delta=delta)
                 text = f"Промежуток между сменами фото чата успешно установлен на {
                     delta}д."

@@ -22,7 +22,7 @@ async def get_pool():
 class Request:
     """This class is responsible for handling all the database queries."""
 
-    def __init__(self, connector: psycopg_pool.AsyncConnectionPool.connection):
+    def __init__(self, connector: AsyncConnectionPool.connection):
         self.connector = connector
 
     async def check_db_connection(self) -> bool:
@@ -31,15 +31,16 @@ class Request:
         try:
             async with self.connector.cursor() as cursor:
                 await cursor.execute("SELECT 1")
-        except psycopg_pool.Error as e:
-            logging.error(f"Has lost connection to database:\n <pre>\n{e}</pre>")
+        except Exception as e:
+            logging.error(f"Has lost connection to database:\n {e}")
             logging.info("Try reconnect to database")
 
             try:
-                self.connector = get_pool()
-            except psycopg_pool.Error as e:
-                logging.exception(f"Connect to database failed:\n "
-                                  f"<pre>\n{e}</pre>")
+                pool_connection = await get_pool()
+                async with pool_connection.connection() as connection:
+                    self.connector = connection
+            except Exception as e:
+                logging.exception(f"Connect to database failed:\n {e}")
 
     async def get_chats(self) -> dict:
         """This method is used to get all the chats from the database."""
@@ -106,9 +107,8 @@ class Request:
     async def get_queue(self, chat_id):
         """This method is used to get the queue from the database."""
 
-        # TODO: replace by true chat id
         query = (f"SELECT hunter, game, platform FROM platinum "
-                 f"WHERE chat_id=-1001356987990 AND hunter!='*Default*' "
+                 f"WHERE chat_id={chat_id} AND hunter!='*Default*' "
                  f"AND game!='*Default*' ORDER BY id")
 
         async with self.connector.cursor() as cursor:
@@ -164,9 +164,8 @@ class Request:
         timezone = tz("Europe/Moscow")
         date = date.astimezone(tz=timezone)
         print(date)
-        # TODO: replace by true chat id
         query = (f"SELECT hunter, COUNT(id) FROM history "
-                 f"WHERE chat_id=-1001356987990 AND date>='{date}' "
+                 f"WHERE chat_id={chat_id} AND date>='{date}' "
                  f"GROUP BY hunter "
                  f"ORDER BY COUNT(id) DESC")
 
@@ -177,9 +176,8 @@ class Request:
     async def get_history(self, chat_id, hunter: str):
         """This method is used to get the history from the database."""
 
-        # TODO: replace by true chat id
         query = (f"SELECT game, date, platform FROM history "
-                 f"WHERE chat_id=-1001356987990 AND hunter='{hunter}' ORDER BY date")
+                 f"WHERE chat_id={chat_id} AND hunter='{hunter}' ORDER BY date")
         async with self.connector.cursor() as cursor:
             await cursor.execute(query)
             data = []

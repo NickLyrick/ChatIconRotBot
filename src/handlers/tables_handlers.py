@@ -6,8 +6,7 @@ from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 
 from src.database import Request
-
-# from src.utility.tools import table
+from src.utility.tools import table
 
 table_router = Router()
 
@@ -30,14 +29,14 @@ async def show_queue(message: types.Message, request: Request) -> None:
             f"<pre>\n{e}</pre>"
         )
 
-    # if len(data) > 0:
-    #     media = table(
-    #         data, columns=["Nickname", "Game", "Platform"], caption="Очередь трофеев"
-    #     )
-    #     if len(media) > 0:
-    #         await message.reply_media_group(media=media)
-    # else:
-    #     await message.reply(text="Список пуст!")
+    if len(data) > 0:
+        media = table(
+            data, columns=["Nickname", "Game", "Platform"], caption="Очередь трофеев"
+        )
+        if len(media) > 0:
+            await message.reply_media_group(media=media)
+    else:
+        await message.reply(text="Список пуст!")
 
 
 @table_router.message(Command("top"))
@@ -69,12 +68,12 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
             f"<pre>\n{e}</pre>"
         )
 
-    # if len(data) > 0:
-    #     media = table(data, columns=["Nickname", "Trophies"], caption=caption)
-    #     if len(media) > 0:
-    #         await message.reply_media_group(media=media)
-    # else:
-    #     await message.reply("Список пуст!")
+    if len(data) > 0:
+        media = table(data, columns=["Nickname", "Trophies"], caption=caption)
+        if len(media) > 0:
+            await message.reply_media_group(media=media)
+    else:
+        await message.reply("Список пуст!")
 
 
 @table_router.message(Command("history"))
@@ -101,13 +100,13 @@ async def get_history(message: types.Message, command: CommandObject, request: R
             f"<pre>\n{e}</pre>"
         )
 
-    # if len(data) > 0:
-    #     media = table(
-    #         data,
-    #         columns=["Game", "Date", "Platform"],
-    #         caption=f"Список всех трофеев @{username}",
-    #     )
-    #     if len(media) > 0:
-    #         await message.reply_media_group(media=media)
-    # else:
-    #     await message.reply("Список пуст!")
+    if len(data) > 0:
+        media = table(
+            data,
+            columns=["Game", "Date", "Platform"],
+            caption=f"Список всех трофеев @{username}",
+        )
+        if len(media) > 0:
+            await message.reply_media_group(media=media)
+    else:
+        await message.reply("Список пуст!")

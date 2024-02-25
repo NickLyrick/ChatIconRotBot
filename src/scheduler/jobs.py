@@ -1,6 +1,7 @@
 """Jobs for scheduler."""
 
 import datetime
+import logging
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
@@ -8,11 +9,12 @@ from aiogram.types import BufferedInputFile
 from src.database.connect import Request
 
 
-async def change_avatar(bot: Bot, request: Request, chat_id: int):
+async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
     """Change chat avatar."""
 
+    logging.info(f"Changing avatar for chat {chat_id}")
+
     file_id, text = await request.get_avatar(chat_id)
-    where_run = await request.get_chats()
 
     if file_id is not None:
         avatar = await bot.download(file=file_id)
@@ -31,4 +33,5 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int):
 async def check_db_connection(request: Request):
     """Check database connection."""
 
-    await request.check_connection()
+    logging.info("Checking database connection")
+    await request.check_db_connection()

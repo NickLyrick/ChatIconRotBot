@@ -1,6 +1,7 @@
 """Configuration for bot"""
 
 from dataclasses import dataclass
+from os import environ
 
 from src.bot import commands
 
@@ -33,15 +34,12 @@ class Settings:
 
 settings = Settings(
     bot=Bot(
-        # TODO: remove TOKEN and ID's
-        bot_token="6731907326:AAHNXMHa_tIWIXGpjeElHG4tc39PDO95jz0",
+        bot_token=environ["TOKEN"],
+        # TODO: add admin_ids to environment variables
         admin_ids=[392087623],
         welcome_message="Я жажду платин!",
         chat_help_message=commands.chat_help_text,
         bot_admin_help_message=commands.admin_help_text,
     ),
-    db=DB(
-        # TODO: insert DATABASE_URL
-        database_url="host=127.0.0.1 port=5432 dbname=platinum user=postgres password=210294alexander_I4"
-    ),
+    db=DB(database_url=environ["DATABASE_URL"]),
 )
