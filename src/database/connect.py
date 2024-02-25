@@ -73,8 +73,7 @@ class Request:
         """This method is used to get the settings of the chats from the database."""
 
         async with self.connector.cursor() as cursor:
-            get_chat_settings_query = f"SELECT date, delta FROM chats WHERE chat_id={
-                chat_id}"
+            get_chat_settings_query = f"SELECT date, delta FROM chats WHERE chat_id={chat_id}"
             get_chat_default_avatar_query = (f"SELECT photo_id FROM platinum "
                                              f"WHERE chat_id={chat_id} AND hunter='*Default*'")
 
@@ -144,8 +143,7 @@ class Request:
                 trophy = "платиной"
                 if record.platform == "Xbox":
                     trophy = "1000G"
-                text = f'Поздравляем @{record.hunter} с {
-                    trophy} в игре \"{record.game}\" !'
+                text = f'Поздравляем @{record.hunter} с {trophy} в игре \"{record.game}\" !'
                 file_id = record.photo_id
 
                 query_delete_avatar = (
@@ -250,8 +248,7 @@ class Request:
 
                 await cursor.execute(delete_platinum_query)
                 await cursor.execute(delete_history_query)
-                text = f"Трофей в игре {
-                    record.game} игрока @{record.hunter} успешно удален"
+                text = f"Трофей в игре {record.game} игрока @{record.hunter} успешно удален"
 
                 self.connector.commit()
 

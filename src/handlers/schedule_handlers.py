@@ -91,8 +91,7 @@ async def set_delta(message: types.Message, command: CommandObject, bot: Bot, re
                 delta = scheduler.where_run[chat_id]['delta']
                 await scheduler.add_change_avatar_job(bot=bot, request=request, chat_id=chat_id, date=None,
                                         delta=delta)
-                text = f"Промежуток между сменами фото чата успешно установлен на {
-                    delta}д."
+                text = f"Промежуток между сменами фото чата успешно установлен на {delta}д."
             else:
                 text = "Промежуток между сменами фото должен быть больше нуля и целым числом"
 

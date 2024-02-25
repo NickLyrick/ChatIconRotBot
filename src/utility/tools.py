@@ -35,8 +35,7 @@ def table(data, columns, caption: str = None):
                 "th, td {text-align: center; }\n")
 
     if "Game" in columns:
-        css_text += f"td:nth-child({columns.index('Game') +
-                                    2}) {{ text-align: left; }}\n"
+        css_text += f"td:nth-child({columns.index('Game') + 2}) {{ text-align: left; }}\n"
 
     # Generate CSS styles
     css = wsp.CSS(string=css_text)
