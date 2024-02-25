@@ -3,6 +3,7 @@
 import wikipedia
 from aiogram import Router, types
 from aiogram.filters import Command
+from aiogram.utils.formatting import TextLink, as_list, as_numbered_section, Bold
 from wikipedia import exceptions as wiki_exceptions
 
 from src.database import Request
@@ -26,25 +27,31 @@ async def games_info(message: types.Message, request: Request):
         )
         return
 
-    text = ""
-    for i, record in enumerate(data, start=1):
-        game = record[1]
-
+    links_list = []
+    for _, game in data:
         try:
-            page = wikipedia.page(game)
-            url = f"[{game}]({page.url})"
+            page = wikipedia.page(game + " video game")
+            url = TextLink(game, url=page.url)
         except wiki_exceptions.PageError:
-            results = wikipedia.search(game)
-            try:
-                page = wikipedia.page(results[0])
-                url = f"[{game}]({page.url} )"
-            except wiki_exceptions.PageError:
-                url = "Информация не найдена"
+            results = wikipedia.search(game + " video game")
+            if len(results) > 0:
+                try:
+                    page = wikipedia.page(results[0])
+                    url = TextLink(game, url=page.url)
+                except wiki_exceptions.PageError:
+                    url = game
         except wiki_exceptions.DisambiguationError:
-            url = "Информация не найдена"
+            url = game
 
-        text += f"{i}) {url} \n"
+        links_list.append(url)
 
-    if len(text) == 0:
-        text = "Информация не найдена"
-    await message.reply(text=text, parse_mode="Markdown")
+    if len(links_list) == 0:
+        return await message.reply("Информация не найдена")
+
+    content = as_list(
+        as_numbered_section(
+            Bold("Список ссылок:"),
+            *links_list)
+        )
+
+    await message.reply(**content.as_kwargs())
