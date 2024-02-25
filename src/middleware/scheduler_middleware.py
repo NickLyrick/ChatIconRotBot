@@ -12,9 +12,9 @@ from src.scheduler.scheduler import Scheduler
 class SchedulerMW(BaseMiddleware):
     """Middleware for the scheduler."""
 
-    def __init__(self, scheduler: AsyncIOScheduler):
+    def __init__(self, scheduler: Scheduler):
         super().__init__()
-        self.scheduler = Scheduler(scheduler)
+        self.scheduler = scheduler
 
     async def __call__(
         self,
