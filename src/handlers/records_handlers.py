@@ -2,19 +2,20 @@
 
 import random
 
-from aiogram import Bot, F, Router, types
-from aiogram.enums import ChatAction
+from aiogram import Bot, F, Router, flags, types
 from aiogram.enums.chat_member_status import ChatMemberStatus
 from aiogram.exceptions import AiogramError
 from aiogram.filters import Command
-from aiogram.utils.chat_action import ChatActionSender
+from aiogram.types.error_event import ErrorEvent
+from aiogram.utils import formatting
 
+from src.bot.settings import settings
 from src.database import Request
 from src.filters import my_filters
 from src.utility.answers import quotations
 from src.utility.platinum_record import PlatinumRecord
 
-records_router = Router()
+records_router = Router(name=__name__)
 
 
 async def check_permissions(message: types.Message) -> bool:
@@ -27,7 +28,7 @@ async def check_permissions(message: types.Message) -> bool:
         await message.reply(
             text=f"Не хватает прав для изменения информации группы!\n"
             f"Ошибка: \n"
-            f"<pre>\n{e}</pre>"
+            f"{formatting.Pre(e)}.as_html()"
         )
 
 
@@ -36,61 +37,57 @@ async def check_permissions(message: types.Message) -> bool:
 async def add_record(message: types.Message, bot: Bot, request: Request) -> None:
     """Add record to the database."""
 
-    action_sender = ChatActionSender(
-        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot
+    chat_id = message.chat.id
+    username = message.from_user.username
+    bot = await bot.get_me()
+    bot_username = bot.username
+    game = (
+        message.caption.replace(f"@{bot_username}", "")
+        .replace("Xbox", "")
+        .replace("Playstation", "")
+        .strip()
     )
 
-    try:
-        async with action_sender:
-            chat_id = message.chat.id
-            username = message.from_user.username
-            bot = await bot.get_me()
-            bot_username = bot.username
-            game = (
-                message.caption.replace(f"@{bot_username}", "")
-                .replace("Xbox", "")
-                .replace("Playstation", "")
-                .strip()
-            )
+    platform = "Playstation"
+    if message.caption.find("Xbox") != -1:
+        platform = "Xbox"
 
-            platform = "Playstation"
-            if message.caption.find("Xbox") != -1:
-                platform = "Xbox"
+    file_id = message.photo[-1].file_id
 
-            file_id = message.photo[-1].file_id
+    text = random.choice(quotations)
+    if game == "*Default*":
+        if await check_permissions(message):
+            username = "*Default*"
+            text = "Стандартный аватар установлен"
+        else:
+            return
 
-            text = random.choice(quotations)
-            if game == "*Default*":
-                if await check_permissions(message):
-                    username = "*Default*"
-                    text = "Стандартный аватар установлен"
-                else:
-                    return
+    if username is not None:
+        record = PlatinumRecord(username, game, file_id, platform)
+        await request.add_record(chat_id=chat_id, record=record)
 
-            if username is not None:
-                record = PlatinumRecord(username, game, file_id, platform)
-                await request.add_record(chat_id=chat_id, record=record)
-
-            await message.reply(text)
-    except Exception as e:
-        await message.answer(text=f"Ошибка: \n" f"<pre>\n{e}</pre>")
+    await message.reply(text)
 
 
 @records_router.message(Command("delete_game"))
 async def delete_game(message: types.Message, bot: Bot, request: Request):
     """Delete record from the database."""
 
-    action_sender = ChatActionSender(
-        action=ChatAction.TYPING, chat_id=message.chat.id, bot=bot
+    chat_id = message.chat.id
+    username = message.from_user.username
+
+    text = await request.delete_record(chat_id=chat_id, username=username)
+
+    await message.reply(text)
+
+
+@records_router.error()
+async def error_handler(event: ErrorEvent, bot: Bot) -> None:
+    """Handle errors."""
+
+    content = formatting.as_list(
+        formatting.Text(f"Ошибка в {__name__}:"),
+        formatting.Pre(event.exception),
     )
-
-    try:
-        async with action_sender:
-            chat_id = message.chat.id
-            username = message.from_user.username
-
-            text = await request.delete_record(chat_id=chat_id, username=username)
-
-            await message.reply(text)
-    except Exception as e:
-        await message.answer(text=f"Ошибка: \n" f"<pre>\n{e}</pre>")
+    for admin_id in settings.bot.admin_ids:
+        await bot.send_message(admin_id, text=content.as_html())

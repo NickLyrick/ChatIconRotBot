@@ -6,6 +6,7 @@ from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
 from aiogram.filters import BaseFilter
 from aiogram.types import Message
+from aiogram.utils import formatting
 
 
 class CorrectPlatinumRecord(BaseFilter):
@@ -33,7 +34,7 @@ class CorrectPlatinumRecord(BaseFilter):
             await message.answer(
                 text=f"Не удалось добавить платину:\n\n"
                 f"Ошибка: \n"
-                f"<pre>\n{e}</pre>"
+                f"{formatting.Pre(e)}.as_html()"
             )
             return False
 
@@ -45,7 +46,7 @@ class FromPrivateChat(BaseFilter):
         try:
             return message.chat.type == "private"
         except Exception as e:
-            await message.answer(text=f"Ошибка: \n" f"<pre>\n{e}</pre>")
+            await message.answer(text=f"Ошибка: \n" f"{formatting.Pre(e)}.as_html()")
             return False
 
 
@@ -56,7 +57,7 @@ class FromGroupOrSuperGroup(BaseFilter):
         try:
             return message.chat.type in {"group", "supergroup"}
         except Exception as e:
-            await message.answer(text=f"Ошибка: \n" f"<pre>\n{e}</pre>")
+            await message.answer(text=f"Ошибка: \n" f"{formatting.Pre(e)}.as_html()")
             return False
 
 
@@ -74,7 +75,7 @@ class CheckPermissions(BaseFilter):
                 )
                 return False
         except Exception as e:
-            await message.answer(text=f"Ошибка: \n" f"<pre>\n{e}</pre>")
+            await message.answer(text=f"Ошибка: \n" f"{formatting.Pre(e)}.as_html()")
             return False
 
 
@@ -88,15 +89,9 @@ class Filters:
     check_permissions: CheckPermissions
 
 
-def get_filters() -> Filters:
-    """Get filters for the handlers."""
-
-    return Filters(
-        platinum_check=CorrectPlatinumRecord(),
-        from_private_chat=FromPrivateChat(),
-        from_group_or_supergroup=FromGroupOrSuperGroup(),
-        check_permissions=CheckPermissions(),
-    )
-
-
-my_filters = get_filters()
+my_filters = Filters(
+    platinum_check=CorrectPlatinumRecord(),
+    from_private_chat=FromPrivateChat(),
+    from_group_or_supergroup=FromGroupOrSuperGroup(),
+    check_permissions=CheckPermissions(),
+)

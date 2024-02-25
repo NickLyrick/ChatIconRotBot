@@ -28,14 +28,18 @@ def table(data, columns, caption: str = None):
     df = pd.DataFrame(data, columns=columns)
     df.index += 1
 
-    css_text = ("@page { size: 800px 715px; padding: 0px; margin: 0px; }\n"
-                "table, td, tr, th { border: 1px solid black; }\n"
-                "th { padding: 4px 8px; background-color: lightgray; }\n"
-                "td { padding: 4px 8px; }\n"
-                "th, td {text-align: center; }\n")
+    css_text = (
+        "@page { size: 800px 715px; padding: 0px; margin: 0px; }\n"
+        "table, td, tr, th { border: 1px solid black; }\n"
+        "th { padding: 4px 8px; background-color: lightgray; }\n"
+        "td { padding: 4px 8px; }\n"
+        "th, td {text-align: center; }\n"
+    )
 
     if "Game" in columns:
-        css_text += f"td:nth-child({columns.index('Game') + 2}) {{ text-align: left; }}\n"
+        css_text += (
+            f"td:nth-child({columns.index('Game') + 2}) {{ text-align: left; }}\n"
+        )
 
     # Generate CSS styles
     css = wsp.CSS(string=css_text)
@@ -47,15 +51,20 @@ def table(data, columns, caption: str = None):
     for i, page in enumerate(pages):
         trimmed = trim(page)
         img = BytesIO()
-        trimmed.save(img, 'PNG')
+        trimmed.save(img, "PNG")
         img.seek(0)
 
         if i == 0:
-            page = types.InputMediaPhoto(type='photo', media=types.BufferedInputFile(img.read(), filename="i.png"),
-                                         caption=caption)
+            page = types.InputMediaPhoto(
+                type="photo",
+                media=types.BufferedInputFile(img.read(), filename="i.png"),
+                caption=caption,
+            )
         else:
             page = types.InputMediaPhoto(
-                type='photo', media=types.BufferedInputFile(img.read(), filename="i.png"))
+                type="photo",
+                media=types.BufferedInputFile(img.read(), filename="i.png"),
+            )
         media.append(page)
 
     return media

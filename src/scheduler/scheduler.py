@@ -29,7 +29,7 @@ class Scheduler:
             "interval",
             minutes=1,
             start_date=start_db_check,
-            args=[request],
+            args=[bot, request],
         )
 
         for chat_id in self.where_run:

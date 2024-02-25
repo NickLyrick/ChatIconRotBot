@@ -4,6 +4,7 @@ import logging
 
 import pytz
 from aiogram import Bot, Dispatcher
+from aiogram.utils.chat_action import ChatActionMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.database import Request
@@ -39,6 +40,9 @@ def register_middlewares(
 
     dp.update.middleware.register(db_middleware)
     dp.message.middleware.register(scheduler_middleware)
+    dp.message.middleware.register(ChatActionMiddleware())
+    dp.update.middleware.register(ChatActionMiddleware())
+    dp.error.middleware.register(ChatActionMiddleware())
 
 
 @dispatcher.startup()

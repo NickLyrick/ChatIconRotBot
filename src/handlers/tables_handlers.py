@@ -2,16 +2,21 @@
 
 from datetime import datetime
 
-from aiogram import Router, types
+from aiogram import Bot, Router, flags, types
+from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandObject
+from aiogram.types.error_event import ErrorEvent
+from aiogram.utils import formatting
 
+from src.bot.settings import settings
 from src.database import Request
 from src.utility.tools import table
 
-table_router = Router()
+table_router = Router(name=__name__)
 
 
 @table_router.message(Command("show_queue"))
+@flags.chat_action(action=ChatAction.UPLOAD_PHOTO)
 async def show_queue(message: types.Message, request: Request) -> None:
     """Show the queue of trophies."""
 
@@ -26,7 +31,7 @@ async def show_queue(message: types.Message, request: Request) -> None:
         await message.reply(
             text=f"Не удалось получить очередь трофеев\n\n"
             f"Ошибка: \n"
-            f"<pre>\n{e}</pre>"
+            f"{formatting.Pre(e).as_html()}"
         )
 
     if len(data) > 0:
@@ -40,6 +45,7 @@ async def show_queue(message: types.Message, request: Request) -> None:
 
 
 @table_router.message(Command("top"))
+@flags.chat_action(action=ChatAction.UPLOAD_PHOTO)
 async def top(message: types.Message, command: CommandObject, request: Request) -> None:
     """Show the top of the chat."""
 
@@ -65,7 +71,7 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
         await message.reply(
             text=f"Не удалось получить топ от {date}\n\n"
             f"Ошибка: \n"
-            f"<pre>\n{e}</pre>"
+            f"{formatting.Pre(e).as_html()}"
         )
 
     if len(data) > 0:
@@ -77,6 +83,7 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
 
 
 @table_router.message(Command("history"))
+@flags.chat_action(action=ChatAction.UPLOAD_PHOTO)
 async def get_history(message: types.Message, command: CommandObject, request: Request):
     """Get the history of the user's trophies."""
 
@@ -97,7 +104,7 @@ async def get_history(message: types.Message, command: CommandObject, request: R
         await message.reply(
             text=f"Не удалось получить историю от @{username}\n\n"
             f"Ошибка: \n"
-            f"<pre>\n{e}</pre>"
+            f"{formatting.Pre(e).as_html()}"
         )
 
     if len(data) > 0:
@@ -110,3 +117,15 @@ async def get_history(message: types.Message, command: CommandObject, request: R
             await message.reply_media_group(media=media)
     else:
         await message.reply("Список пуст!")
+
+
+@table_router.error()
+async def error_handler(event: ErrorEvent, bot: Bot) -> None:
+    """Handle errors."""
+
+    content = formatting.as_list(
+        formatting.Text(f"Ошибка в {__name__}:"),
+        formatting.Pre(event.exception),
+    )
+    for admin_id in settings.bot.admin_ids:
+        await bot.send_message(admin_id, text=content.as_html())
