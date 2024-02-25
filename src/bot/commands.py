@@ -2,6 +2,7 @@
 
 # Import Chat Scopes
 from aiogram.types import BotCommand
+from aiogram.utils import formatting
 
 # TODO: Implement user_chat_commands
 
@@ -36,7 +37,7 @@ bot_admin_commands = [
 ]
 
 chat_help_text = f"""
-<b>У бота есть следующие команды</b>:
+{formatting.Bold("У бота есть следующие команды:").as_html()}
 
 /{group_chat_commands[0].command} - запуск бота в чате
 /{group_chat_commands[1].command} - вывод справочной информации
@@ -47,7 +48,7 @@ chat_help_text = f"""
 """
 
 admin_help_text = f"""
-<b>Для администраторов бота доступны следующие команды:</b>
+{formatting.Bold("Для администраторов бота доступны следующие команды:").as_html()}
 /{bot_admin_commands[0].command} - Показать текущие настройки
 /{bot_admin_commands[1].command} - Задать время ближайшей смены. Пример: /date 22/07/1941 04:00
 /{bot_admin_commands[2].command} - Задать промежуток между сменами. Пример: /delta 3
