@@ -9,7 +9,7 @@ WORKDIR /opt/src
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 
-RUN apk add --no-cache poppler-utils
+RUN apk add --no-cache poppler-utils pango
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
