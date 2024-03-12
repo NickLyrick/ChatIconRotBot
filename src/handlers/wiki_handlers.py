@@ -1,7 +1,7 @@
 """Module with handlers for wiki."""
 
 import wikipedia
-from aiogram import Bot, Router, flags, types
+from aiogram import Bot, Router, types
 from aiogram.filters import Command
 from aiogram.utils import formatting
 from wikipedia import exceptions as wiki_exceptions

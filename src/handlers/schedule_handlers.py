@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 import pytz
-from aiogram import Bot, Router, flags, types
+from aiogram import Bot, Router, types
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types.error_event import ErrorEvent
 from aiogram.utils import formatting

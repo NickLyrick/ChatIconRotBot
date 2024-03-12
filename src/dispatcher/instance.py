@@ -39,8 +39,7 @@ def register_middlewares(
     """Register Middlewares"""
 
     dp.update.middleware.register(db_middleware)
-    dp.message.middleware.register(scheduler_middleware)
-    dp.message.middleware.register(ChatActionMiddleware())
+    dp.update.middleware.register(scheduler_middleware)
     dp.update.middleware.register(ChatActionMiddleware())
     dp.error.middleware.register(ChatActionMiddleware())
 

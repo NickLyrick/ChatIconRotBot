@@ -2,7 +2,7 @@
 
 import random
 
-from aiogram import Bot, F, Router, flags, types
+from aiogram import Bot, F, Router, types
 from aiogram.enums.chat_member_status import ChatMemberStatus
 from aiogram.exceptions import AiogramError
 from aiogram.filters import Command

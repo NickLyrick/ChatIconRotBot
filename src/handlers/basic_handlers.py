@@ -1,7 +1,7 @@
 """Module providing a basic bot functionality."""
 
 # TODO: Implement user chat commands
-from aiogram import Bot, Router, flags, types
+from aiogram import Bot, Router, types
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BotCommandScopeAllChatAdministrators,
