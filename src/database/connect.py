@@ -313,4 +313,4 @@ class Request:
             )
             await cursor.execute(query)
 
-            return [PlatinumRecord(*record) for record in await cursor.fetchall()]
+            return await cursor.fetchall()
