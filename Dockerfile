@@ -9,8 +9,7 @@ WORKDIR /opt/src
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 
-RUN apk add --no-cache poppler-utils pango font-terminus font-inconsolata font-dejavu \
-    font-noto font-noto-cjk font-awesome font-noto-extra
+RUN apk add --no-cache poppler-utils pango font-misc-misc
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
