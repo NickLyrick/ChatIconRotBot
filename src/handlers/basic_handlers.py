@@ -58,7 +58,9 @@ async def help_admin_command(message: types.Message) -> None:
         # await message.reply(text=settings.bot.user_help_message)
     else:
         await message.reply(
-            text=settings.bot.chat_help_message + settings.bot.bot_admin_help_message
+            text=settings.bot.chat_help_message
+            + "\n\n"
+            + settings.bot.bot_admin_help_message
         )
 
 
