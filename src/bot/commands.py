@@ -11,6 +11,10 @@ group_chat_commands = [
     BotCommand(command="help", description="Вывод справочной информации"),
     BotCommand(command="show_queue", description="Отобразить очередь выбитых трофеев"),
     BotCommand(
+        command="delete_game",
+        description="Удалить последний добавленный пользователем трофей",
+    ),
+    BotCommand(
         command="history",
         description="Показать твои выбитые трофеев. Можно запросить трофеи любого пользователя",
     ),
@@ -36,20 +40,13 @@ bot_admin_commands = [
     ),
 ]
 
-chat_help_text = f"""
-{formatting.Bold("У бота есть следующие команды:").as_html()}
+chat_help_text = formatting.Bold("У бота есть следующие команды:").as_html() + "\n"
+for command in group_chat_commands:
+    chat_help_text += f"\n/{command.command} - {command.description}"
 
-/{group_chat_commands[0].command} - запуск бота в чате
-/{group_chat_commands[1].command} - вывод справочной информации
-/{group_chat_commands[2].command} - отобразить очередь выбитых трофеев на данный момент
-/{group_chat_commands[3].command} - показать историю выбитых трофеев. По умолчанию своих. Можно запросить историю любого пользователя.
-/{group_chat_commands[4].command} - топ выбитых трофеев за всё время или за указанный промежуток.
-/{group_chat_commands[5].command} - показать информацию (Wikipedia) об играх из очереди
-"""
-
-admin_help_text = f"""
-{formatting.Bold("Для администраторов бота доступны следующие команды:").as_html()}
-/{bot_admin_commands[0].command} - Показать текущие настройки
-/{bot_admin_commands[1].command} - Задать время ближайшей смены. Пример: /date 22/07/1941 04:00
-/{bot_admin_commands[2].command} - Задать промежуток между сменами. Пример: /delta 3
-"""
+admin_help_text = (
+    formatting.Bold("Для администраторов бота доступны следующие команды:").as_html()
+    + "\n"
+)
+for command in bot_admin_commands:
+    admin_help_text += f"\n/{command.command} - {command.description}"
