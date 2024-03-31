@@ -14,7 +14,7 @@ from src.utility.platinum_record import PlatinumRecord
 async def get_pool():
     """This function is used to get the connection pool to the database."""
 
-    return AsyncConnectionPool(settings.db.database_url)
+    return AsyncConnectionPool(settings.db.database_url, max_lifetime=60*30)
 
 
 # TODO: don't use raw SQL queries
