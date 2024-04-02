@@ -33,7 +33,7 @@ async def check_permissions(message: types.Message) -> bool:
 
 
 # TODO: Split on 2 functions. Process Default avatar separately. Use my_filter.check_permissions and remove 17-24
-@records_router.message(F.photo, my_filters.platinum_check)
+@records_router.message((F.photo | F.animation) & F.caption, my_filters.platinum_check)
 async def add_record(message: types.Message, bot: Bot, request: Request) -> None:
     """Add record to the database."""
 
@@ -52,7 +52,10 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
     if message.caption.find("Xbox") != -1:
         platform = "Xbox"
 
-    file_id = message.photo[-1].file_id
+    if message.photo is not None:
+        file_id = message.photo[-1].file_id
+    else:
+        file_id = message.animation.file_id
 
     text = random.choice(quotations)
     if game == "*Default*":
