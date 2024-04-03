@@ -26,7 +26,7 @@ multidict==5.1.0
 numpy==1.24.4
 pandas==2.0.3
 pdf2image==1.17.0
-pillow==10.2.0
+pillow==10.3.0
 psycopg2-binary==2.9.3
 pycparser==2.21
 pydyf==0.8.0
