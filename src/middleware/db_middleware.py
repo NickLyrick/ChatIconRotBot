@@ -4,7 +4,6 @@ from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
-from psycopg_pool import AsyncConnectionPool
 
 from src.database import Request
 
@@ -12,9 +11,9 @@ from src.database import Request
 class DBSession(BaseMiddleware):
     """Middleware for working with the database."""
 
-    def __init__(self, connector: AsyncConnectionPool):
+    def __init__(self, request: Request):
         super().__init__()
-        self.connector = connector
+        self.request = request
 
     async def __call__(
         self,
@@ -22,6 +21,5 @@ class DBSession(BaseMiddleware):
         event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
-        async with self.connector.connection() as connect:
-            data["request"] = Request(connect)
-            return await handler(event, data)
+        data["request"] = self.request
+        return await handler(event, data)
