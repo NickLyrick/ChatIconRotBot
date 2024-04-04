@@ -23,15 +23,15 @@ class Scheduler:
 
         self.where_run = await request.get_chats()
 
-        # Set max_lifetime in AsyncConnectionPool 
-        # start_db_check = datetime.now(timezone.utc) + timedelta(minutes=1)
-        # self.scheduler.add_job(
-        #     check_db_connection,
-        #     "interval",
-        #     minutes=1,
-        #     start_date=start_db_check,
-        #     args=[bot, request],
-        # )
+        # Set max_lifetime in AsyncConnectionPool
+        start_db_check = datetime.now(timezone.utc) + timedelta(minutes=1)
+        self.scheduler.add_job(
+            check_db_connection,
+            "interval",
+            minutes=1,
+            start_date=start_db_check,
+            args=[bot, request],
+        )
 
         for chat_id in self.where_run:
             date = self.where_run[chat_id]["date"]
