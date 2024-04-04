@@ -2,6 +2,7 @@
 
 import random
 
+import yaml
 from aiogram import Bot, F, Router, types
 from aiogram.enums.chat_member_status import ChatMemberStatus
 from aiogram.exceptions import AiogramError
@@ -12,7 +13,6 @@ from aiogram.utils import formatting
 from src.bot.settings import settings
 from src.database import Request
 from src.filters import my_filters
-from src.utility.answers import quotations
 from src.utility.platinum_record import PlatinumRecord
 
 records_router = Router(name=__name__)
@@ -54,7 +54,16 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
 
     file_id = message.photo[-1].file_id
 
-    text = random.choice(quotations)
+    with open("src/data/quotations.yaml", "r", encoding="utf8") as file:
+        quotations = yaml.safe_load(file)["quotations"]
+
+    quotation = random.choice(quotations)
+
+    text = formatting.as_list(
+        formatting.BlockQuote(formatting.Italic(f" {quotation['quotation']} ", "\n\n")),
+        formatting.Text(f"{quotation['author']}", "\n", f"{quotation['game']}"),
+    ).as_html()
+
     if game == "*Default*":
         if await check_permissions(message):
             username = "*Default*"
