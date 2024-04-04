@@ -43,7 +43,7 @@ toml==0.10.2
 typing-extensions==3.7.4.3
 tzdata==2023.4
 tzlocal==2.1
-urllib3==1.26.8
+urllib3==1.26.18
 weasyprint==60.2
 webencodings==0.5.1
 wikipedia==1.4.0
