@@ -38,10 +38,12 @@ def register_middlewares(
 ) -> None:
     """Register Middlewares"""
 
-    dp.update.middleware.register(db_middleware)
-    dp.update.middleware.register(scheduler_middleware)
+    dp.message.middleware.register(ChatActionMiddleware())
     dp.update.middleware.register(ChatActionMiddleware())
     dp.error.middleware.register(ChatActionMiddleware())
+
+    dp.update.middleware.register(db_middleware)
+    dp.update.middleware.register(scheduler_middleware)
 
 
 @dispatcher.startup()
@@ -65,7 +67,7 @@ async def on_startup(dispatcher: Dispatcher, bot: Bot) -> None:
     # Register middlewares
     register_middlewares(
         dp=dispatcher,
-        db_middleware=DBSession(connector=pool_connection),
+        db_middleware=DBSession(request=request),
         scheduler_middleware=SchedulerMW(scheduler=scheduler),
     )
     logging.info("Middlewares registered")
