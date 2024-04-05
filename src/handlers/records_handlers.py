@@ -60,7 +60,7 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
     quotation = random.choice(quotations)
 
     text = formatting.as_list(
-        formatting.BlockQuote(formatting.Italic(f" {quotation['quotation']} ", "\n\n")),
+        formatting.Text(formatting.Italic(f" \"{quotation['quotation']}\" (c)", "\n")),
         formatting.Text(f"{quotation['author']}", "\n", f"{quotation['game']}"),
     ).as_html()
 

@@ -11,18 +11,21 @@ from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
 
-async def get_pool():
-    """This function is used to get the connection pool to the database."""
-
-    return AsyncConnectionPool(settings.db.database_url)
-
-
 # TODO: don't use raw SQL queries
 class Request:
     """This class is responsible for handling all the database queries."""
 
-    def __init__(self, connector: AsyncConnectionPool.connection):
-        self.connector = connector
+    def __init__(self):
+        """Initialize the Request class."""
+
+        self.connector = None
+
+    async def create_connection(self):
+        """This function is used to get the connection to the database."""
+
+        connection_pool = AsyncConnectionPool(settings.db.database_url)
+        async with connection_pool.connection() as connection:
+            self.connector = connection
 
     async def check_db_connection(self) -> bool:
         """This method is used to check the connection to the database."""
@@ -35,9 +38,7 @@ class Request:
             logging.info("Try reconnect to database")
 
             try:
-                pool_connection = await get_pool()
-                async with pool_connection.connection() as connection:
-                    self.connector = connection
+                await self.create_connection()
             except Exception as e:
                 logging.exception(f"Connect to database failed:\n {e}")
 

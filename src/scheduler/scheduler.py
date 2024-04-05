@@ -23,6 +23,7 @@ class Scheduler:
 
         self.where_run = await request.get_chats()
 
+        # Set max_lifetime in AsyncConnectionPool
         start_db_check = datetime.now(timezone.utc) + timedelta(minutes=1)
         self.scheduler.add_job(
             check_db_connection,
