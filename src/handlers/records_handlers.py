@@ -17,6 +17,9 @@ from src.utility.platinum_record import PlatinumRecord
 
 records_router = Router(name=__name__)
 
+with open("src/data/quotations.yaml", "r", encoding="utf8") as file:
+    quotations = yaml.safe_load(file)["quotations"]
+
 
 async def check_permissions(message: types.Message) -> bool:
     """Check if user has permissions to change group info."""
@@ -53,9 +56,6 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
         platform = "Xbox"
 
     file_id = message.photo[-1].file_id
-
-    with open("src/data/quotations.yaml", "r", encoding="utf8") as file:
-        quotations = yaml.safe_load(file)["quotations"]
 
     quotation = random.choice(quotations)
 
