@@ -8,7 +8,6 @@ from aiogram.utils.chat_action import ChatActionMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.database import Request
-from src.database.connect import get_pool
 
 # Routers
 from src.handlers.basic_handlers import basic_router
@@ -25,7 +24,7 @@ from src.scheduler.scheduler import Scheduler
 dispatcher = Dispatcher()
 
 
-def register_routers(dp: Dispatcher) -> None:
+async def register_routers(dp: Dispatcher) -> None:
     """Register Routers"""
 
     dp.include_routers(
@@ -33,14 +32,27 @@ def register_routers(dp: Dispatcher) -> None:
     )
 
 
-def register_middlewares(
-    dp: Dispatcher, db_middleware: DBSession, scheduler_middleware: SchedulerMW
-) -> None:
+async def register_middlewares(dp: Dispatcher, bot: Bot) -> None:
     """Register Middlewares"""
 
-    dp.message.middleware.register(ChatActionMiddleware())
-    dp.update.middleware.register(ChatActionMiddleware())
-    dp.error.middleware.register(ChatActionMiddleware())
+    # Create request
+    request = Request()
+    await request.create_connection()
+    logging.info("Connection created")
+
+    # Create scheduler
+    scheduler = Scheduler(AsyncIOScheduler(timezone=pytz.utc))
+    await scheduler.start(bot=bot, request=request)
+    logging.info("Scheduler started")
+
+    # Create middlewares
+    db_middleware = DBSession(request=request)
+    scheduler_middleware = SchedulerMW(scheduler=scheduler)
+    chat_action_middleware = ChatActionMiddleware()
+
+    dp.message.middleware.register(chat_action_middleware)
+    dp.update.middleware.register(chat_action_middleware)
+    dp.error.middleware.register(chat_action_middleware)
 
     dp.update.middleware.register(db_middleware)
     dp.update.middleware.register(scheduler_middleware)
@@ -50,27 +62,9 @@ def register_middlewares(
 async def on_startup(dispatcher: Dispatcher, bot: Bot) -> None:
     """On startup"""
 
-    # Create request manager
-    pool_connection = await get_pool()
-    logging.info("Pool created")
-
-    # Create scheduler
-    scheduler = Scheduler(AsyncIOScheduler(timezone=pytz.utc))
-    logging.info("Scheduler created")
-
-    async with pool_connection.connection() as connection:
-        request = Request(connection)
-
-    await scheduler.start(bot=bot, request=request)
-    logging.info("Scheduler started")
-
     # Register middlewares
-    register_middlewares(
-        dp=dispatcher,
-        db_middleware=DBSession(request=request),
-        scheduler_middleware=SchedulerMW(scheduler=scheduler),
-    )
+    await register_middlewares(dp=dispatcher, bot=bot)
     logging.info("Middlewares registered")
 
-    register_routers(dp=dispatcher)
+    await register_routers(dp=dispatcher)
     logging.info("Routers registered")
