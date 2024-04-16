@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, delete
 
-from psycopg_pool import AsyncConnectionPool
 from pytz import timezone as tz
 
 from .schemas import Chat, Platinum, History
