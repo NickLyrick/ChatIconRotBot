@@ -6,8 +6,7 @@ pillow~=10.2.0
 weasyprint~=61.0
 typing~=3.7.4.3
 pandas~=2.2.0
-psycopg==3.1.18
-psycopg-binary==3.1.18
-psycopg-pool==3.2.1
 pdf2image~=1.17.0
 pyYAML==6.0.1
+SQLAlchemy==2.0.29
+asyncpg==0.29.0
