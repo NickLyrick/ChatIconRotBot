@@ -4,8 +4,14 @@ which is responsible for handling all the database queries."""
 import logging
 from datetime import datetime
 
-from psycopg_pool import AsyncConnectionPool
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, desc, delete
+
 from pytz import timezone as tz
+
+from .schemas import Chat, Platinum, History
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
@@ -18,25 +24,24 @@ class Request:
     def __init__(self):
         """Initialize the Request class."""
 
-        self.connector = None
+        self.session: async_sessionmaker[AsyncSession] = None
 
     async def create_connection(self):
         """This function is used to get the connection to the database."""
 
-        connection_pool = AsyncConnectionPool(settings.db.database_url)
-        async with connection_pool.connection() as connection:
-            self.connector = connection
+        engine = create_async_engine(settings.db.database_url)
+
+        self.session = async_sessionmaker(engine, expire_on_commit=False)
 
     async def check_db_connection(self) -> bool:
         """This method is used to check the connection to the database."""
 
         try:
-            async with self.connector.cursor() as cursor:
-                await cursor.execute("SELECT 1")
+            async with self.session() as session:
+                await session.execute(select(1))
         except Exception as e:
             logging.error(f"Has lost connection to database:\n {e}")
             logging.info("Try reconnect to database")
-
             try:
                 await self.create_connection()
             except Exception as e:
@@ -44,63 +49,59 @@ class Request:
 
     async def get_chats(self) -> dict:
         """This method is used to get all the chats from the database."""
-
-        query = "SELECT * FROM chats"
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
+        async with self.session() as session:
+            statement = select(Chat)
 
             return {
-                chat_id: {"date": date, "delta": delta}
-                for chat_id, date, delta in await cursor.fetchall()
+                chat.chat_id: {"date": chat.date, "delta": chat.delta}
+                for chat in (await session.scalars(statement)).all()
             }
 
     async def set_chat_date(self, chat_id, date) -> None:
         """This method is used to set the date of the chat in the database."""
+        async with self.session() as session:
+            statement = select(Chat).where(Chat.chat_id == chat_id)
+            chat = (await session.scalars(statement)).one()
+            chat.date = date
 
-        query = f"UPDATE chats SET date='{date}' WHERE chat_id={chat_id}"
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
-
-        await self.connector.commit()
+            await session.commit()
 
     async def set_chat_delta(self, chat_id, delta) -> None:
         """This method is used to set the delta of the chat in the database."""
 
-        query = f"UPDATE chats SET delta={delta} WHERE chat_id={chat_id}"
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
-            await self.connector.commit()
+        async with self.session() as session:
+            statement = select(Chat).where(Chat.chat_id == chat_id)
+            chat = (await session.scalars(statement)).one()
+            chat.delta = delta
+
+            await session.commit()
 
     async def get_chat_settings(self, chat_id) -> list:
         """This method is used to get the settings of the chats from the database."""
 
-        async with self.connector.cursor() as cursor:
-            get_chat_settings_query = (
-                f"SELECT date, delta FROM chats WHERE chat_id={chat_id}"
-            )
-            get_chat_default_avatar_query = (
-                f"SELECT photo_id FROM platinum "
-                f"WHERE chat_id={chat_id} AND hunter='*Default*'"
-            )
+        async with self.session() as session:
+            statement_chat = select(Chat).where(Chat.chat_id == chat_id)
+            statement_default = select(Platinum).where(Platinum.chat_id == chat_id).\
+                where(Platinum.hunter == '*Default*').where(Platinum.game == '*Default*')
+            chat = (await session.scalars(statement_chat)).one()
+            default_avatar_record = (await session.scalars(statement_default)).one()
 
-            await cursor.execute(get_chat_settings_query)
-            date, delta = await cursor.fetchone()
-
-            await cursor.execute(get_chat_default_avatar_query)
-            default_avatar_record = await cursor.fetchone()
-
-            return [date, delta, default_avatar_record]
+            return [chat.date, chat.delta, default_avatar_record.photo_id]
 
     async def add_chat_data(self, chat_id, date, delta) -> None:
         """This method is used to add the chat data to the database."""
 
-        query = (
-            f"INSERT INTO chats VALUES({chat_id},{date},{delta})"
-            f"ON CONFLICT (chat_id) DO UPDATE SET (date, delta) = ({date}, {delta})"
-        )
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
-        await self.connector.commit()
+        async with self.session() as session:
+            statement = select(Chat).where(Chat.chat_id == chat_id)
+            chat = (await session.scalars(statement)).one_or_none()
+
+            if chat is None:
+                await session.add(Chat(chat_id=chat_id, date=date, delta=delta))
+            else:
+                chat.date = date
+                chat.delta = delta
+
+            await session.commit()
 
     async def add_user_data(self, user_id, user_name) -> None:
         """This method is used to add the user data to the database."""
@@ -114,39 +115,27 @@ class Request:
     async def get_queue(self, chat_id):
         """This method is used to get the queue from the database."""
 
-        query = (
-            f"SELECT hunter, game, platform FROM platinum "
-            f"WHERE chat_id={chat_id} AND hunter!='*Default*' "
-            f"AND game!='*Default*' ORDER BY id"
-        )
+        async with self.session() as session:
+            statement = select(Platinum.hunter, Platinum.game, Platinum.platform).\
+                where(Platinum.hunter != '*Default*').where(Platinum.chat_id==chat_id).order_by(Platinum.id)
+            trophies = await session.execute(statement)
 
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
-            return await cursor.fetchall()
+            return trophies.all()
 
     async def get_avatar(self, chat_id):
         """This method is used to get the avatar file_id from the database."""
 
-        query = (
-            f"SELECT hunter, game, photo_id, platform FROM platinum "
-            f"WHERE chat_id={chat_id} AND hunter!='*Default*' ORDER BY id"
-        )
-
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
-
-            records = [PlatinumRecord(*row) for row in await cursor.fetchall()]
+        async with self.session() as session:
+            records = await self.get_queue(chat_id)
 
             if len(records) == 0:
-                query_default_avatar = (
-                    f"SELECT photo_id FROM platinum "
-                    f"WHERE chat_id={chat_id} AND hunter='*Default*' AND game='*Default*'"
-                )
-                await cursor.execute(query_default_avatar)
-                row = await cursor.fetchone()
-                if row is not None:
+                statement_default = select(Platinum).where(Platinum.chat_id == chat_id).\
+                    where(Platinum.hunter == '*Default*').where(Platinum.game == '*Default*')
+                default_avatar_record = (await session.scalars(statement_default)).one_or_none()
+
+                if default_avatar_record is not None:
                     text = "Новых трофеев нет. Ставлю стандартный аватар :("
-                    file_id = row[0]
+                    file_id = default_avatar_record.photo_id
                 else:
                     text = "Стандартный аватар не задан. Оставляю всё как есть."
                     file_id = None
@@ -161,14 +150,9 @@ class Request:
                 )
                 file_id = record.photo_id
 
-                query_delete_avatar = (
-                    f"DELETE FROM platinum "
-                    f"WHERE chat_id={chat_id} AND hunter='{record.hunter}' "
-                    f"AND game='{record.game}' AND platform='{record.platform}'"
-                )
-                await cursor.execute(query_delete_avatar)
+                await session.delete(record)
 
-            await self.connector.commit()
+            await session.commit()
 
             return file_id, text
 
@@ -177,30 +161,23 @@ class Request:
 
         timezone = tz("Europe/Moscow")
         date = date.astimezone(tz=timezone)
-        print(date)
-        query = (
-            f"SELECT hunter, COUNT(id) FROM history "
-            f"WHERE chat_id={chat_id} AND date>='{date}' "
-            f"GROUP BY hunter "
-            f"ORDER BY COUNT(id) DESC"
-        )
 
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
-            return await cursor.fetchall()
+        async with self.session() as session:
+            statement = select(History.hunter, func.count(History.id)).\
+                where(History.chat_id == chat_id).where(History.date >= date).\
+                    group_by(History.hunter).order_by(desc(func.count(History.id)))
+            return (await session.execute(statement)).all()
 
     async def get_history(self, chat_id, hunter: str):
         """This method is used to get the history from the database."""
 
-        query = (
-            f"SELECT game, date, platform FROM history "
-            f"WHERE chat_id={chat_id} AND hunter='{hunter}' ORDER BY date"
-        )
-        async with self.connector.cursor() as cursor:
-            await cursor.execute(query)
+        async with self.session() as session:
+            statement = select(History.game, History.date, History.platform).\
+                where(History.chat_id == chat_id).\
+                    where(History.hunter == hunter).order_by(History.date)
             data = []
             timezone = tz("Europe/Moscow")
-            for record in await cursor.fetchall():
+            for record in (await session.execute(statement)).all():
                 game, date, platform = record
                 date = date.astimezone(tz=timezone)
                 date_str = date.strftime("%d.%m.%Y")
@@ -211,107 +188,65 @@ class Request:
     async def add_record(self, chat_id, record: PlatinumRecord) -> None:
         """This method is used to add the record to the database."""
 
-        async with self.connector.cursor() as cursor:
-            select_query = (
-                "SELECT * FROM platinum "
-                "WHERE chat_id = %s AND hunter = %s AND game = %s AND platform = %s"
-            )
+        async with self.session() as session:
+            statement = select(Platinum).where(Platinum.chat_id == chat_id).\
+                where(Platinum.hunter == record.hunter).\
+                    where(Platinum.game == record.game).\
+                    where(Platinum.platform == record.platform)
 
-            await cursor.execute(
-                select_query, (chat_id, record.hunter, record.game, record.platform)
-            )
-            existing_record = await cursor.fetchone()
+            existing_record = (await session.scalars(statement)).one_or_none()
 
             if existing_record is None:
                 # Query to insert a record into the 'platinum' table
-                insert_platinum_query = (
-                    "INSERT INTO platinum(chat_id, hunter, game, photo_id, platform) "
-                    "VALUES (%s, %s, %s, %s, %s) "
-                )
+                platinum = Platinum(chat_id=chat_id,
+                                    hunter=record.hunter,
+                                    game=record.game,
+                                    photo_id=record.photo_id,
+                                    platform=record.platform)
                 # Query to insert a record into the 'history' table
-                insert_history_query = (
-                    "INSERT INTO history(chat_id, hunter, game, platform) "
-                    "VALUES (%s, %s, %s, %s) "
-                )
+                history = History(chat_id=chat_id,
+                                    hunter=record.hunter,
+                                    game=record.game,
+                                    platform=record.platform)
 
-                # Execute the platinum insertion query
-                await cursor.execute(
-                    insert_platinum_query,
-                    (
-                        chat_id,
-                        record.hunter,
-                        record.game,
-                        record.photo_id,
-                        record.platform,
-                    ),
-                )
-                # Execute the history insertion query
-                await cursor.execute(
-                    insert_history_query,
-                    (chat_id, record.hunter, record.game, record.platform),
-                )
+                session.add_all([platinum, history])
             else:
-                update_photo_id_query = (
-                    "UPDATE platinum SET photo_id = %s "
-                    "WHERE chat_id = %s AND hunter = %s AND game = %s AND platform = %s"
-                )
-                await cursor.execute(
-                    update_photo_id_query,
-                    (
-                        record.photo_id,
-                        chat_id,
-                        record.hunter,
-                        record.game,
-                        record.platform,
-                    ),
-                )
+                existing_record.photo_id = record.photo_id
 
             # Commit the changes to the database
-            await self.connector.commit()
+            await session.commit()
 
     async def delete_record(self, chat_id, username) -> str:
         """This method is used to delete the record from the database."""
 
-        async with self.connector.cursor() as cursor:
-            query = (
-                f"SELECT hunter, game, photo_id, platform FROM platinum "
-                f"WHERE chat_id={chat_id} AND hunter='{username}' ORDER BY id"
-            )
-            await cursor.execute(query)
-            records_user = [PlatinumRecord(*row) for row in await cursor.fetchall()]
+        async with self.session() as session:
+            statement = select(Platinum).where(Platinum.chat_id==chat_id).\
+                where(Platinum.hunter==username).order_by(Platinum.id)
+
+            records_user = (await session.scalars(statement)).all()
 
             if len(records_user) == 0:
                 text = f"Удалять у @{username} нечего. Поднажми!"
             else:
                 record = records_user[-1]
-                delete_platinum_query = (
-                    f"DELETE FROM platinum "
-                    f"WHERE chat_id={chat_id} "
-                    f"AND hunter='{record.hunter}' AND game='{record.game}'"
-                )
-                delete_history_query = (
-                    f"DELETE FROM history "
-                    f"WHERE chat_id={chat_id} "
-                    f"AND hunter='{record.hunter}' AND game='{record.game}'"
-                )
 
-                await cursor.execute(delete_platinum_query)
-                await cursor.execute(delete_history_query)
+                statement_delete = delete(History).where(History.chat_id==chat_id).\
+                    where(History.hunter==record.hunter).where(History.game==record.game)
+
+                await session.delete(record)
+                await session.execute(statement_delete)
+
                 text = f"Трофей в игре {record.game} игрока @{record.hunter} успешно удален"
 
-                self.connector.commit()
+                await session.commit()
 
         return text
 
     async def get_records_data(self, chat_id):
         """This method is used to get the records data from the database."""
 
-        async with self.connector.cursor() as cursor:
-            query = (
-                f"SELECT hunter, game FROM platinum "
-                f"WHERE chat_id={chat_id} AND hunter!='*Default*' "
-                f"AND game!='*Default*' ORDER BY id"
-            )
-            await cursor.execute(query)
+        async with self.session() as session:
+            statement = select(Platinum.hunter, Platinum.game).where(Platinum.chat_id==chat_id).\
+                where(Platinum.hunter!='*Default*').order_by(Platinum.id)
 
-            return await cursor.fetchall()
+            return (await session.execute(statement)).all()
