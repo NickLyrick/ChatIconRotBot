@@ -93,13 +93,14 @@ async def get_history(message: types.Message, command: CommandObject, request: R
     arguments = command.args
 
     username = message.from_user.username
+    user_id = message.from_user.id
 
     if arguments is not None:
         username = arguments.replace("@", "")
 
     data = []
     try:
-        data = await request.get_history(chat_id=chat_id, hunter=username)
+        data = await request.get_history(chat_id=chat_id, user_id=user_id)
     except Exception as e:
         await message.reply(
             text=f"Не удалось получить историю от @{username}\n\n"
