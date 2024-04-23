@@ -42,6 +42,7 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
 
     chat_id = message.chat.id
     username = message.from_user.username
+    user_id = message.from_user.id
     bot = await bot.get_me()
     bot_username = bot.username
     game = (
@@ -72,7 +73,7 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
             return
 
     if username is not None:
-        record = PlatinumRecord(username, game, file_id, platform)
+        record = PlatinumRecord(username, game, file_id, platform, user_id)
         await request.add_record(chat_id=chat_id, record=record)
 
     await message.reply(text)
@@ -84,8 +85,9 @@ async def delete_game(message: types.Message, bot: Bot, request: Request):
 
     chat_id = message.chat.id
     username = message.from_user.username
+    user_id = message.from_user.id
 
-    text = await request.delete_record(chat_id=chat_id, username=username)
+    text = await request.delete_record(chat_id=chat_id, username=username, user_id=user_id)
 
     await message.reply(text)
 
