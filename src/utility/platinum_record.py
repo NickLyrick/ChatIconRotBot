@@ -9,12 +9,14 @@ class PlatinumRecord:
         game (str): name of the game
         photo_id (str): id of the photo
         platform (str): platform on which the platinum was achieved
+        user_id: Telegram User ID
 
     Attributes:
         hunter (str): name of the hunter
         game (str): name of the game
         photo_id (str): id of the photo
         platform (str): platform on which the platinum was achieved
+        user_id: Telegram User ID
 
     Methods:
         __init__(self, hunter: str, game: str, photo_id: str, platform: str): initializes the object
@@ -24,7 +26,7 @@ class PlatinumRecord:
 
     """
 
-    def __init__(self, hunter: str, game: str, photo_id: str, platform: str):
+    def __init__(self, hunter: str, game: str, photo_id: str, platform: str, user_id: int):
         """__init__ initializes the object
 
         Args:
@@ -32,6 +34,7 @@ class PlatinumRecord:
             game (str): name of the game
             photo_id (str): id of the photo
             platform (str): platform on which the platinum was achieved
+            user_id: Telegram User ID
 
         """
         super().__init__()
@@ -39,6 +42,7 @@ class PlatinumRecord:
         self.game = game
         self.photo_id = photo_id
         self.platform = platform
+        self.user_id = user_id
 
     def __str__(self) -> str:
         """__str__ returns a string representation of the object
@@ -72,7 +76,7 @@ class PlatinumRecord:
 
         """
         return (
-            (self.hunter == other.hunter)
+            (self.user_id == other.user_id)
             and (self.game == other.game)
             and (self.platform == other.platform)
         )

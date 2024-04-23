@@ -26,6 +26,7 @@ class History(Base):
     game = Column(Text)
     date = Column(DateTime(timezone=True), server_default=func.now())
     platform = Column(Text, default="Playstation")
+    user_id = Column(BigInteger)
 
 class Platinum(Base):
     __tablename__ = "platinum"
@@ -36,3 +37,4 @@ class Platinum(Base):
     game = Column(Text)
     platform = Column(Text, default="Playstation")
     photo_id = Column(Text)
+    user_id = Column(BigInteger)
