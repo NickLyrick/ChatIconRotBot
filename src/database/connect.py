@@ -17,7 +17,6 @@ from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
 
-# TODO: don't use raw SQL queries
 class Request:
     """This class is responsible for handling all the database queries."""
 

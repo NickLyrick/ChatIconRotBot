@@ -20,8 +20,6 @@ table_router = Router(name=__name__)
 async def show_queue(message: types.Message, request: Request) -> None:
     """Show the queue of trophies."""
 
-    # TODO: decide what to do with users
-    # await request.add_user_data(message.from_user.id, message.from_user.username)
     chat_id = message.chat.id
 
     data = []
@@ -49,8 +47,6 @@ async def show_queue(message: types.Message, request: Request) -> None:
 async def top(message: types.Message, command: CommandObject, request: Request) -> None:
     """Show the top of the chat."""
 
-    # TODO: decide what to do with users
-    # await request.add_user_data(message.from_user.id, message.from_user.username)
     chat_id = message.chat.id
     arguments = command.args
     date = datetime(1980, 1, 1)
@@ -87,8 +83,6 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
 async def get_history(message: types.Message, command: CommandObject, request: Request):
     """Get the history of the user's trophies."""
 
-    # TODO: decide what to do with users
-    # await request.add_user_data(message.from_user.id, message.from_user.username)
     chat_id = message.chat.id
     arguments = command.args
 

@@ -51,8 +51,6 @@ async def command_start(message: types.Message) -> None:
 async def help_admin_command(message: types.Message) -> None:
     """Send help message to admin when he uses /help command."""
 
-    # TODO: decide how to add user_id
-    # await request.add_data(message.from_user.id, message.from_user.username)
     if message.chat.type == "private":
         pass
         # await message.reply(text=settings.bot.user_help_message)
@@ -68,8 +66,6 @@ async def help_admin_command(message: types.Message) -> None:
 async def help_command(message: types.Message) -> None:
     """Send help message to user when he uses /help command."""
 
-    # TODO: decide how to add user_id
-    # await request.add_data(message.from_user.id, message.from_user.username)
     if message.chat.type == "private":
         pass
         # await message.reply(text=settings.bot.user_help_message)
