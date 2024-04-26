@@ -55,7 +55,6 @@ async def set_date(
 
         if date > datetime.now(timezone.utc):
             await request.set_chat_date(chat_id, date)
-            scheduler.where_run = await request.get_chats()
             await scheduler.add_change_avatar_job(
                 bot=bot, request=request, chat_id=chat_id, date=date, delta=None
             )
@@ -99,8 +98,6 @@ async def set_delta(
 
         if delta > 0:
             await request.set_chat_delta(chat_id=chat_id, delta=delta)
-            scheduler.where_run = await request.get_chats()
-            delta = scheduler.where_run[chat_id]["delta"]
             await scheduler.add_change_avatar_job(
                 bot=bot, request=request, chat_id=chat_id, date=None, delta=delta
             )
