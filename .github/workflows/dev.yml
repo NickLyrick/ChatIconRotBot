@@ -19,3 +19,4 @@ jobs:
             use-black: true
             use-mypy: false
             use-isort: true
+            extra-pylint-options: "--rcfile ./.pylintrc"
