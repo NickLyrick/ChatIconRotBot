@@ -20,5 +20,6 @@ jobs:
             pip install --upgrade pip
             pip install pylint
         - name: Check pylint
-          run:
+          run: |
+            ls -la ./
             pylint src
