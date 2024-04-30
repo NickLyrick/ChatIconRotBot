@@ -21,4 +21,4 @@ jobs:
             pip install pylint
         - name: Check pylint
           run:
-            pylint --rcfile .pylintrc src
+            pylint src
