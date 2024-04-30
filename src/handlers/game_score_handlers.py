@@ -1,7 +1,8 @@
 from aiogram import F, Router
-from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery
 from aiogram.utils import formatting
+
+from src.database import Request
 
 from ..keyboards.inline import (
     GameSurveyCallbackData,
@@ -13,24 +14,6 @@ from ..keyboards.inline import (
 )
 
 game_score_router = Router()
-
-
-# TODO: Move this to change_avatar job
-@game_score_router.message(Command("score"))
-async def distribute_survey(message: Message) -> None:
-    """Send messages to all members of the group."""
-
-    # TODO: Need to take this from the database
-    callback_data = GameSurveyCallbackData(
-        hunter_id=392087623, hunter_name="test", history_id=23, game_name="best"
-    )
-
-    await message.answer(
-        text="Здесь будет картинка с игрой.",
-        reply_markup=build_start_survey_keyboard(
-            text="Оценить", callback_data=callback_data
-        ),
-    )
 
 
 @game_score_router.callback_query(
@@ -54,7 +37,9 @@ async def process_cancel(
     GameSurveyCallbackData.filter(F.state == SurveyState.IDLE)
 )
 async def start_survey(
-    callback_query: CallbackQuery, callback_data: GameSurveyCallbackData
+    callback_query: CallbackQuery,
+    callback_data: GameSurveyCallbackData,
+    request: Request,
 ) -> None:
     """Start Survey Callback."""
 
@@ -62,14 +47,17 @@ async def start_survey(
 
     callback_data.user_id = callback_query.from_user.id
 
-    await callback_query.bot.send_message(
-        chat_id=callback_data.user_id,
-        text=f"Оцените игру",
-        # TODO: Place Picture here
-        reply_markup=build_start_survey_keyboard(
-            text="Оценить", callback_data=callback_data
-        ),
-    )
+    # TODO: Place Picture here for Artem
+    # photo=request.get_avatar(callback_data.history_id),
+    # await callback_query.bot.send_photo(
+    #     chat_id=callback_data.user_id,
+    #     photo=,
+    #     text=f"Оцените игру",
+    #     reply_markup=build_start_survey_keyboard(
+    #         text="Оценить",
+    #         callback_data=callback_data,
+    #     ),
+    # )
 
 
 @game_score_router.callback_query(
@@ -142,7 +130,9 @@ async def process_difficulty_score(
     GameSurveyCallbackData.filter(F.state == SurveyState.DIFFICULTY_SCORED)
 )
 async def process_difficulty_score(
-    callback_query: CallbackQuery, callback_data: GameSurveyCallbackData
+    callback_query: CallbackQuery,
+    callback_data: GameSurveyCallbackData,
+    request: Request,
 ) -> None:
     """Result Callback."""
 
@@ -159,6 +149,11 @@ async def process_difficulty_score(
     )
 
     # TODO: Save to the database here
+    # request.write_survey_results(
+    #     game_score=callback_data.game_score,
+    #     picture_score=callback_data.picture_score,
+    #     difficulty_score=callback_data.difficulty_score,
+    # )
 
     await callback_query.message.edit_text(
         text="Оценить заново",

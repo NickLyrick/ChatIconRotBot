@@ -9,6 +9,7 @@ from aiogram.utils import formatting
 
 from src.bot.settings import settings
 from src.database.connect import Request
+from src.keyboards.inline import GameSurveyCallbackData, build_start_survey_keyboard
 
 
 async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
@@ -25,7 +26,23 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 photo=BufferedInputFile(file=avatar.read(), filename="avatar.png"),
             )
 
-        await bot.send_message(chat_id, text)
+        # TODO: for Artem
+        # hunter_id, hunter_name, history_id, game_name = request.get_everything()
+
+        # callback_data = GameSurveyCallbackData(
+        #     hunter_id=hunter_id,
+        #     hunter_name=hunter_name,
+        #     history_id=history_id,
+        #     game_name=game_name,
+        # )
+
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            # reply_markup=build_start_survey_keyboard(
+            #     text="Оценить", callback_data=callback_data
+            # ),
+        )
 
         t_delta = datetime.timedelta(days=where_run[chat_id]["delta"])
         date = where_run[chat_id]["date"] + t_delta
