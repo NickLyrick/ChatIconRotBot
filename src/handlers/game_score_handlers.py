@@ -45,11 +45,9 @@ async def start_survey(
 
     callback_data.user_id = callback_query.from_user.id
 
-    photo_id = await callback_query.message.photo[-1].file_id
-
     await callback_query.bot.send_photo(
         chat_id=callback_data.user_id,
-        photo=photo_id,
+        photo=callback_query.message.photo[-1].file_id,
         text=f"Оцените игру {callback_data.game}",
         reply_markup=build_start_survey_keyboard(
             text="Оценить",
