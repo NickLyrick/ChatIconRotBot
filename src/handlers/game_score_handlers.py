@@ -25,8 +25,8 @@ async def process_cancel(
     """Process Cancel Callback."""
 
     await callback_query.answer()
-    await callback_query.message.edit_text(
-        text="Оценка отменена.",
+    await callback_query.message.edit_caption(
+        caption="Оценка отменена.",
         reply_markup=build_start_survey_keyboard(
             text="Оценить Заново", callback_data=callback_data
         ),
@@ -69,8 +69,8 @@ async def process_first_step(
     await callback_query.answer()
 
     if callback_data.hunter_id != callback_data.user_id:
-        await callback_query.message.edit_text(
-            text="Оцените Игру от 1 до 10",
+        await callback_query.message.edit_caption(
+            caption="Оцените Игру от 1 до 10",
             reply_markup=build_game_score_keyboard(callback_data),
         )
     else:
@@ -98,8 +98,8 @@ async def process_picture_score(
 
     await callback_query.answer()
 
-    await callback_query.message.edit_text(
-        text="Оцените Картинку от 1 до 10",
+    await callback_query.message.edit_caption(
+        caption="Оцените Картинку от 1 до 10",
         reply_markup=build_picture_score_keyboard(callback_data),
     )
 
@@ -119,8 +119,8 @@ async def process_difficulty_score(
         formatting.Italic("Если не знаете что поставить, то нажмите 'Пропустить'"),
     ).as_html()
 
-    await callback_query.message.edit_text(
-        text=text, reply_markup=build_difficulty_score_keyboard(callback_data)
+    await callback_query.message.edit_caption(
+        caption=text, reply_markup=build_difficulty_score_keyboard(callback_data)
     )
 
 
@@ -154,8 +154,8 @@ async def process_result(
         trophy_id=callback_data.history_id,
     )
 
-    await callback_query.message.edit_text(
-        text="Оценить заново",
+    await callback_query.message.edit_caption(
+        caption="Оценить заново",
         reply_markup=build_start_survey_keyboard(
             text="Изменить оценку", callback_data=callback_data
         ),
