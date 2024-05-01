@@ -4,6 +4,8 @@ which is responsible for handling all the database queries."""
 import logging
 from datetime import datetime
 
+from typing import Optional, List
+
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,11 +13,10 @@ from sqlalchemy import select, func, desc, delete
 
 from pytz import timezone as tz
 
-from .schemas import Chat, Platinum, History
-
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
+from .schemas import Chat, Platinum, History, Scores
 
 class Request:
     """This class is responsible for handling all the database queries."""
@@ -119,7 +120,7 @@ class Request:
 
             return trophies.all()
 
-    async def get_avatar(self, chat_id):
+    async def get_avatar(self, chat_id) -> tuple[str, int, str]:
         """This method is used to get the avatar file_id from the database."""
 
         async with self.session() as session:
@@ -149,12 +150,15 @@ class Request:
                     f'Поздравляем @{record.hunter} с {trophy} в игре "{record.game}" !'
                 )
                 file_id = record.photo_id
+                hunter_id = record.user_id
+                game = record.game
+                platform = record.platform
 
                 await session.delete(record)
 
             await session.commit()
 
-            return file_id, text
+            return file_id, hunter_id, game, platform, text
 
     async def get_top(self, chat_id, date: datetime):
         """This method is used to get the top from the database."""
@@ -271,3 +275,39 @@ class Request:
             )
 
             return (await session.execute(statement)).all()
+
+    async def get_history_id(self,
+                             chat_id: int,
+                             user_id: int,
+                             game: str,
+                             platform: str) -> Optional[int]:
+        """This method is used to get ID History from the database."""
+        async with self.session() as session:
+            statement = (
+                select(History.id).
+                where(History.chat_id == chat_id).
+                where(History.user_id == user_id).
+                where(History.game == game).
+                where(History.platform == platform)
+            )
+
+            return (await session.execute(statement)).one_or_none()
+
+    async def add_survey(self,
+                         game_score: int,
+                         picture_score: int,
+                         difficulty_score: int,
+                         user_id: int,
+                         trophie_id: int) -> None:
+        """This method is used to add the survey to the database."""
+
+        async with self.session() as session:
+            scores = Scores(game=game_score,
+                            picture=picture_score,
+                            difficulty=difficulty_score,
+                            user_id=user_id,
+                            trophie_id=trophie_id)
+
+            session.add(scores)
+
+            await session.commit()
