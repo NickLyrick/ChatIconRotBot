@@ -1,5 +1,5 @@
 from aiogram import F, Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, BufferedInputFile
 from aiogram.utils import formatting
 
 from src.database import Request
@@ -38,8 +38,7 @@ async def process_cancel(
 )
 async def start_survey(
     callback_query: CallbackQuery,
-    callback_data: GameSurveyCallbackData,
-    request: Request,
+    callback_data: GameSurveyCallbackData
 ) -> None:
     """Start Survey Callback."""
 
@@ -47,17 +46,15 @@ async def start_survey(
 
     callback_data.user_id = callback_query.from_user.id
 
-    # TODO: Place Picture here for Artem
-    # photo=request.get_avatar(callback_data.history_id),
-    # await callback_query.bot.send_photo(
-    #     chat_id=callback_data.user_id,
-    #     photo=,
-    #     text=f"Оцените игру",
-    #     reply_markup=build_start_survey_keyboard(
-    #         text="Оценить",
-    #         callback_data=callback_data,
-    #     ),
-    # )
+    await callback_query.bot.send_photo(
+        chat_id=callback_data.user_id,
+        photo=callback_data.photo_id,
+        text=f"Оцените игру {callback_data.game}",
+        reply_markup=build_start_survey_keyboard(
+            text="Оценить",
+            callback_data=callback_data,
+        ),
+    )
 
 
 @game_score_router.callback_query(
@@ -129,7 +126,7 @@ async def process_difficulty_score(
 @game_score_router.callback_query(
     GameSurveyCallbackData.filter(F.state == SurveyState.DIFFICULTY_SCORED)
 )
-async def process_difficulty_score(
+async def process_result(
     callback_query: CallbackQuery,
     callback_data: GameSurveyCallbackData,
     request: Request,
@@ -148,12 +145,13 @@ async def process_difficulty_score(
         show_alert=True,
     )
 
-    # TODO: Save to the database here
-    # request.write_survey_results(
-    #     game_score=callback_data.game_score,
-    #     picture_score=callback_data.picture_score,
-    #     difficulty_score=callback_data.difficulty_score,
-    # )
+    await request.add_survey(
+        game_score=callback_data.game_score,
+        picture_score=callback_data.picture_score,
+        difficulty_score=callback_data.difficulty_score,
+        user_id=callback_data.user_id,
+        trophie_id=callback_data.history_id
+    )
 
     await callback_query.message.edit_text(
         text="Оценить заново",

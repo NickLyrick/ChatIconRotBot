@@ -17,7 +17,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
     try:
         logging.info(f"Changing avatar for chat {chat_id}")
 
-        file_id, text = await request.get_avatar(chat_id)
+        file_id, hunter_id, game, platform, text = await request.get_avatar(chat_id)
 
         if file_id is not None:
             avatar = await bot.download(file=file_id)
@@ -26,23 +26,26 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 photo=BufferedInputFile(file=avatar.read(), filename="avatar.png"),
             )
 
-        # TODO: for Artem
-        # hunter_id, hunter_name, history_id, game_name = request.get_everything()
+        if hunter_id is not None:
 
-        # callback_data = GameSurveyCallbackData(
-        #     hunter_id=hunter_id,
-        #     hunter_name=hunter_name,
-        #     history_id=history_id,
-        #     game_name=game_name,
-        # )
+            history_id = await request.get_history_id(chat_id=chat_id,
+                                                      user_id=hunter_id,
+                                                      game=game,
+                                                      platform=platform)
+            callback_data = GameSurveyCallbackData(
+                hunter_id=hunter_id,
+                photo_id=file_id,
+                game=game,
+                history_id=history_id
+            )
 
-        await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            # reply_markup=build_start_survey_keyboard(
-            #     text="Оценить", callback_data=callback_data
-            # ),
-        )
+            await bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                reply_markup=build_start_survey_keyboard(
+                    text="Оценить", callback_data=callback_data
+                ),
+            )
 
         t_delta = datetime.timedelta(days=where_run[chat_id]["delta"])
         date = where_run[chat_id]["date"] + t_delta
