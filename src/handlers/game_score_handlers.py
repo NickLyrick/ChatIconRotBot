@@ -52,9 +52,8 @@ async def start_survey(
         file=callback_query.message.photo[-1].file_id
     )
 
-    hunter_name, game_name = re.findall(
-        r'@(\w+)|"(.*?)"', callback_query.message.caption
-    )
+    game_name = re.findall('"(.*?)"', callback_query.message.caption)[-1]
+    hunter_name = re.findall("@(\w+)", callback_query.message.caption)[-1]
 
     await callback_query.bot.send_photo(
         chat_id=callback_data.user_id,
