@@ -38,3 +38,13 @@ class Platinum(Base):
     platform = Column(Text, default="Playstation")
     photo_id = Column(Text)
     user_id = Column(BigInteger)
+
+class Scores(Base):
+    __tablename__ = "scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trophie_id: Mapped[int]
+    user_id = Column(BigInteger)
+    picture: Mapped[int]
+    game: Mapped[int]
+    difficulty: Mapped[int]
