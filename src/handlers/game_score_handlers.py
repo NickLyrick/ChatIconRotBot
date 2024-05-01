@@ -1,3 +1,5 @@
+import re
+
 from aiogram import F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery
 from aiogram.utils import formatting
@@ -25,6 +27,7 @@ async def process_cancel(
     """Process Cancel Callback."""
 
     await callback_query.answer()
+
     await callback_query.message.edit_caption(
         caption="Оценка отменена.",
         reply_markup=build_start_survey_keyboard(
@@ -49,10 +52,14 @@ async def start_survey(
         file=callback_query.message.photo[-1].file_id
     )
 
+    hunter_name, game_name = re.findall(
+        r'@(\w+)|"(.*?)"', callback_query.message.caption
+    )
+
     await callback_query.bot.send_photo(
         chat_id=callback_data.user_id,
         photo=BufferedInputFile(file=picture.read(), filename="game.png"),
-        caption=f"Оцените игру {callback_data.game}",
+        caption=f"Оцените игру {game_name} от {hunter_name}",
         reply_markup=build_start_survey_keyboard(
             text="Оценить",
             callback_data=callback_data,
