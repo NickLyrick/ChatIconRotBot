@@ -1,5 +1,5 @@
 from aiogram import F, Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, BufferedInputFile
 from aiogram.utils import formatting
 
 from src.database import Request
@@ -45,10 +45,12 @@ async def start_survey(
 
     callback_data.user_id = callback_query.from_user.id
 
+    picture = await callback_query.bot.download(file=callback_query.message.photo[-1].file_id)
+
     await callback_query.bot.send_photo(
         chat_id=callback_data.user_id,
-        photo=callback_query.message.photo[-1].file_id,
-        text=f"Оцените игру {callback_data.game}",
+        photo=BufferedInputFile(file=picture.read(), filename="game.png"),
+        caption=f"Оцените игру {callback_data.game}",
         reply_markup=build_start_survey_keyboard(
             text="Оценить",
             callback_data=callback_data,
