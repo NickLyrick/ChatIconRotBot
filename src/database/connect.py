@@ -292,7 +292,12 @@ class Request:
                 where(History.platform == platform)
             )
 
-            return (await session.execute(statement)).one_or_none()
+            history_id = (await session.execute(statement)).one_or_none()
+
+            if history_id is None:
+                return None
+
+            return history_id[0]
 
     async def add_survey(self,
                          game_score: int,
