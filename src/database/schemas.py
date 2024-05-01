@@ -2,13 +2,13 @@
 This module contains describes database schemas.
 """
 
-from sqlalchemy import DateTime, Text, BigInteger, Column, func
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
+from sqlalchemy import BigInteger, Column, DateTime, Text, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
 
 class Base(DeclarativeBase):
     pass
+
 
 class Chat(Base):
     __tablename__ = "chats"
@@ -17,8 +17,9 @@ class Chat(Base):
     date = Column(DateTime(timezone=True))
     delta: Mapped[int]
 
+
 class History(Base):
-    __tablename__= "history"
+    __tablename__ = "history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     chat_id = Column(BigInteger)
@@ -27,6 +28,7 @@ class History(Base):
     date = Column(DateTime(timezone=True), server_default=func.now())
     platform = Column(Text, default="Playstation")
     user_id = Column(BigInteger)
+
 
 class Platinum(Base):
     __tablename__ = "platinum"
@@ -38,3 +40,14 @@ class Platinum(Base):
     platform = Column(Text, default="Playstation")
     photo_id = Column(Text)
     user_id = Column(BigInteger)
+
+
+class Scores(Base):
+    __tablename__ = "scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trophy_id: Mapped[int]
+    user_id = Column(BigInteger)
+    picture: Mapped[int]
+    game: Mapped[int]
+    difficulty: Mapped[int]
