@@ -120,11 +120,12 @@ class Request:
 
             return trophies.all()
 
-    async def get_avatar(self, chat_id) -> tuple[str, int, str]:
+    async def get_avatar(self, chat_id) -> tuple[str, int, str, str, str]:
         """This method is used to get the avatar file_id from the database."""
 
         async with self.session() as session:
-            records = await self.get_queue(chat_id)
+
+            records = (await session.scalars(select(Platinum).where(Platinum.chat_id == chat_id))).all()
 
             if len(records) == 0:
                 statement_default = (
