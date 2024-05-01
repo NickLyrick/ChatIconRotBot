@@ -11,6 +11,7 @@ from src.database import Request
 
 # Routers
 from src.handlers.basic_handlers import basic_router
+from src.handlers.game_score_handlers import game_score_router
 from src.handlers.records_handlers import records_router
 from src.handlers.schedule_handlers import schedule_router
 from src.handlers.tables_handlers import table_router
@@ -28,7 +29,12 @@ async def register_routers(dp: Dispatcher) -> None:
     """Register Routers"""
 
     dp.include_routers(
-        basic_router, table_router, schedule_router, records_router, wiki_router
+        basic_router,
+        game_score_router,
+        table_router,
+        schedule_router,
+        records_router,
+        wiki_router,
     )
 
 
