@@ -32,7 +32,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
             )
 
             callback_data = GameSurveyCallbackData(
-                hunter_id=hunter_id, game=game, history_id=history_id
+                hunter_id=hunter_id, history_id=history_id
             )
 
             avatar.seek(0)
