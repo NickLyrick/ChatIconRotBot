@@ -315,7 +315,7 @@ class Request:
         picture_score: int,
         difficulty_score: int,
         user_id: int,
-        trophy_id: int
+        trophy_id: int,
     ) -> None:
         """This method is used to add the survey to the database."""
 
