@@ -122,7 +122,6 @@ class Request:
         """This method is used to get the avatar file_id from the database."""
 
         async with self.session() as session:
-
             records = (
                 await session.scalars(
                     select(Platinum).where(Platinum.chat_id == chat_id)
@@ -293,6 +292,7 @@ class Request:
         self, chat_id: int, user_id: int, game: str, platform: str
     ) -> Optional[int]:
         """This method is used to get ID History from the database."""
+
         async with self.session() as session:
             statement = (
                 select(History.id)
