@@ -315,19 +315,31 @@ class Request:
         picture_score: int,
         difficulty_score: int,
         user_id: int,
-        trophy_id: int,
+        trophy_id: int
     ) -> None:
         """This method is used to add the survey to the database."""
 
         async with self.session() as session:
-            scores = Scores(
-                game=game_score,
-                picture=picture_score,
-                difficulty=difficulty_score,
-                user_id=user_id,
-                trophy_id=trophy_id,
+            statement = (
+                select(Scores)
+                .where(Scores.user_id == user_id)
+                .where(Scores.trophy_id == trophy_id)
             )
 
-            session.add(scores)
+            existing_record = (await session.scalars(statement)).one_or_none()
+            if existing_record is None:
+                scores = Scores(
+                    game=game_score,
+                    picture=picture_score,
+                    difficulty=difficulty_score,
+                    user_id=user_id,
+                    trophy_id=trophy_id,
+                )
+
+                session.add(scores)
+            else:
+                existing_record.game = game_score
+                existing_record.picture = picture_score
+                existing_record.difficulty = difficulty_score
 
             await session.commit()
