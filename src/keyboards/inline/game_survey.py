@@ -29,6 +29,8 @@ class GameSurveyCallbackData(CallbackData, prefix="game_survey"):
     # platinum info
     history_id: Optional[int] = None
     hunter_id: Optional[int] = None
+    photo_id: Optional[str] = None
+    game: Optional[str] = None
 
     # scores for platinum
     game_score: Optional[int] = None
