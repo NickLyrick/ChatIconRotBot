@@ -35,10 +35,12 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 hunter_id=hunter_id, game=game, history_id=history_id
             )
 
+            avatar.seek(0)
+
             await bot.send_photo(
-                photo=file_id,
+                photo=BufferedInputFile(file=avatar.read(), filename="game.png"),
                 chat_id=chat_id,
-                text=text,
+                caption=text,
                 reply_markup=build_start_survey_keyboard(
                     text="Оценить", callback_data=callback_data
                 ),
