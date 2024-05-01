@@ -90,8 +90,8 @@ async def process_first_step(
             formatting.Text("Оцените Сложность от 1 до 10.\n"),
             formatting.Italic("Если не знаете что поставить, то нажмите 'Пропустить'"),
         ).as_html()
-        await callback_query.message.edit_text(
-            text=text,
+        await callback_query.message.edit_caption(
+            caption=text,
             reply_markup=build_difficulty_score_keyboard(callback_data),
         )
 
