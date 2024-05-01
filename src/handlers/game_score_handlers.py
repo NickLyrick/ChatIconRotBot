@@ -84,10 +84,10 @@ async def process_first_step(
     else:
         text = formatting.as_list(
             formatting.Text(
-                "Так как эту игру выбил ты,",
-                "то тебе остается только оценить сложность",
+                "Так как эту игру выбил ты, ",
+                "то тебе остается только оценить Сложность",
             ),
-            formatting.Text("Оцените Сложность от 1 до 10.\n"),
+            formatting.Text("Оцените eё от 1 до 10.\n"),
             formatting.Italic("Если не знаете что поставить, то нажмите 'Пропустить'"),
         ).as_html()
         await callback_query.message.edit_caption(
