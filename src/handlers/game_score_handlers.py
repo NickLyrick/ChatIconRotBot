@@ -1,5 +1,5 @@
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, BufferedInputFile
+from aiogram.types import CallbackQuery
 from aiogram.utils import formatting
 
 from src.database import Request
@@ -37,8 +37,7 @@ async def process_cancel(
     GameSurveyCallbackData.filter(F.state == SurveyState.IDLE)
 )
 async def start_survey(
-    callback_query: CallbackQuery,
-    callback_data: GameSurveyCallbackData
+    callback_query: CallbackQuery, callback_data: GameSurveyCallbackData
 ) -> None:
     """Start Survey Callback."""
 
@@ -46,9 +45,11 @@ async def start_survey(
 
     callback_data.user_id = callback_query.from_user.id
 
+    photo_id = await callback_query.message.photo[-1].file_id
+
     await callback_query.bot.send_photo(
         chat_id=callback_data.user_id,
-        photo=callback_data.photo_id,
+        photo=photo_id,
         text=f"Оцените игру {callback_data.game}",
         reply_markup=build_start_survey_keyboard(
             text="Оценить",
@@ -150,7 +151,7 @@ async def process_result(
         picture_score=callback_data.picture_score,
         difficulty_score=callback_data.difficulty_score,
         user_id=callback_data.user_id,
-        trophie_id=callback_data.history_id
+        trophy_id=callback_data.history_id,
     )
 
     await callback_query.message.edit_text(

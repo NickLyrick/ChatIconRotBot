@@ -3,20 +3,17 @@ which is responsible for handling all the database queries."""
 
 import logging
 from datetime import datetime
-
-from typing import Optional, List
-
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, delete
+from typing import List, Optional
 
 from pytz import timezone as tz
+from sqlalchemy import delete, desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
-from .schemas import Chat, Platinum, History, Scores
+from .schemas import Chat, History, Platinum, Scores
+
 
 class Request:
     """This class is responsible for handling all the database queries."""
@@ -82,9 +79,10 @@ class Request:
         async with self.session() as session:
             statement_chat = select(Chat).where(Chat.chat_id == chat_id)
             statement_default = (
-                select(Platinum).where(Platinum.chat_id == chat_id).
-                where(Platinum.hunter == '*Default*').
-                where(Platinum.game == '*Default*')
+                select(Platinum)
+                .where(Platinum.chat_id == chat_id)
+                .where(Platinum.hunter == "*Default*")
+                .where(Platinum.game == "*Default*")
             )
             chat = (await session.scalars(statement_chat)).one()
             default_avatar_record = (await session.scalars(statement_default)).one()
@@ -111,10 +109,10 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                select(Platinum.hunter, Platinum.game, Platinum.platform).
-                where(Platinum.hunter != '*Default*').
-                where(Platinum.chat_id==chat_id).
-                order_by(Platinum.id)
+                select(Platinum.hunter, Platinum.game, Platinum.platform)
+                .where(Platinum.hunter != "*Default*")
+                .where(Platinum.chat_id == chat_id)
+                .order_by(Platinum.id)
             )
             trophies = await session.execute(statement)
 
@@ -125,15 +123,22 @@ class Request:
 
         async with self.session() as session:
 
-            records = (await session.scalars(select(Platinum).where(Platinum.chat_id == chat_id))).all()
+            records = (
+                await session.scalars(
+                    select(Platinum).where(Platinum.chat_id == chat_id)
+                )
+            ).all()
 
             if len(records) == 0:
                 statement_default = (
-                    select(Platinum).where(Platinum.chat_id == chat_id).
-                    where(Platinum.hunter == '*Default*').
-                    where(Platinum.game == '*Default*')
+                    select(Platinum)
+                    .where(Platinum.chat_id == chat_id)
+                    .where(Platinum.hunter == "*Default*")
+                    .where(Platinum.game == "*Default*")
                 )
-                default_avatar_record = (await session.scalars(statement_default)).one_or_none()
+                default_avatar_record = (
+                    await session.scalars(statement_default)
+                ).one_or_none()
 
                 if default_avatar_record is not None:
                     text = "Новых трофеев нет. Ставлю стандартный аватар :("
@@ -169,11 +174,11 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                select(History.hunter, func.count(History.id)).
-                where(History.chat_id == chat_id).
-                where(History.date >= date).
-                group_by(History.hunter).
-                order_by(desc(func.count(History.id)))
+                select(History.hunter, func.count(History.id))
+                .where(History.chat_id == chat_id)
+                .where(History.date >= date)
+                .group_by(History.hunter)
+                .order_by(desc(func.count(History.id)))
             )
             return (await session.execute(statement)).all()
 
@@ -182,9 +187,10 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                select(History.game, History.date, History.platform).
-                where(History.chat_id == chat_id).
-                where(History.user_id == user_id).order_by(History.date)
+                select(History.game, History.date, History.platform)
+                .where(History.chat_id == chat_id)
+                .where(History.user_id == user_id)
+                .order_by(History.date)
             )
             data = []
             timezone = tz("Europe/Moscow")
@@ -201,28 +207,33 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                select(Platinum).where(Platinum.chat_id == chat_id).
-                where(Platinum.user_id == record.user_id).
-                where(Platinum.game == record.game).
-                where(Platinum.platform == record.platform)
+                select(Platinum)
+                .where(Platinum.chat_id == chat_id)
+                .where(Platinum.user_id == record.user_id)
+                .where(Platinum.game == record.game)
+                .where(Platinum.platform == record.platform)
             )
 
             existing_record = (await session.scalars(statement)).one_or_none()
 
             if existing_record is None:
                 # Query to insert a record into the 'platinum' table
-                platinum = Platinum(chat_id=chat_id,
-                                    hunter=record.hunter,
-                                    game=record.game,
-                                    photo_id=record.photo_id,
-                                    platform=record.platform,
-                                    user_id=record.user_id)
+                platinum = Platinum(
+                    chat_id=chat_id,
+                    hunter=record.hunter,
+                    game=record.game,
+                    photo_id=record.photo_id,
+                    platform=record.platform,
+                    user_id=record.user_id,
+                )
                 # Query to insert a record into the 'history' table
-                history = History(chat_id=chat_id,
-                                  hunter=record.hunter,
-                                  game=record.game,
-                                  platform=record.platform,
-                                  user_id=record.user_id)
+                history = History(
+                    chat_id=chat_id,
+                    hunter=record.hunter,
+                    game=record.game,
+                    platform=record.platform,
+                    user_id=record.user_id,
+                )
 
                 session.add_all([platinum, history])
             else:
@@ -236,9 +247,10 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                select(Platinum).where(Platinum.chat_id==chat_id).
-                where(Platinum.user_id==user_id).
-                order_by(Platinum.id)
+                select(Platinum)
+                .where(Platinum.chat_id == chat_id)
+                .where(Platinum.user_id == user_id)
+                .order_by(Platinum.id)
             )
 
             records_user = (await session.scalars(statement)).all()
@@ -249,10 +261,10 @@ class Request:
                 record = records_user[-1]
 
                 statement_delete = (
-                    delete(History).
-                    where(History.chat_id==chat_id).
-                    where(History.user_id==record.user_id).
-                    where(History.game==record.game)
+                    delete(History)
+                    .where(History.chat_id == chat_id)
+                    .where(History.user_id == record.user_id)
+                    .where(History.game == record.game)
                 )
 
                 await session.delete(record)
@@ -269,45 +281,47 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                select(Platinum.hunter, Platinum.game).
-                where(Platinum.chat_id==chat_id).
-                where(Platinum.hunter!='*Default*').
-                order_by(Platinum.id)
+                select(Platinum.hunter, Platinum.game)
+                .where(Platinum.chat_id == chat_id)
+                .where(Platinum.hunter != "*Default*")
+                .order_by(Platinum.id)
             )
 
             return (await session.execute(statement)).all()
 
-    async def get_history_id(self,
-                             chat_id: int,
-                             user_id: int,
-                             game: str,
-                             platform: str) -> Optional[int]:
+    async def get_history_id(
+        self, chat_id: int, user_id: int, game: str, platform: str
+    ) -> Optional[int]:
         """This method is used to get ID History from the database."""
         async with self.session() as session:
             statement = (
-                select(History.id).
-                where(History.chat_id == chat_id).
-                where(History.user_id == user_id).
-                where(History.game == game).
-                where(History.platform == platform)
+                select(History.id)
+                .where(History.chat_id == chat_id)
+                .where(History.user_id == user_id)
+                .where(History.game == game)
+                .where(History.platform == platform)
             )
 
             return (await session.execute(statement)).one_or_none()
 
-    async def add_survey(self,
-                         game_score: int,
-                         picture_score: int,
-                         difficulty_score: int,
-                         user_id: int,
-                         trophie_id: int) -> None:
+    async def add_survey(
+        self,
+        game_score: int,
+        picture_score: int,
+        difficulty_score: int,
+        user_id: int,
+        trophy_id: int,
+    ) -> None:
         """This method is used to add the survey to the database."""
 
         async with self.session() as session:
-            scores = Scores(game=game_score,
-                            picture=picture_score,
-                            difficulty=difficulty_score,
-                            user_id=user_id,
-                            trophie_id=trophie_id)
+            scores = Scores(
+                game=game_score,
+                picture=picture_score,
+                difficulty=difficulty_score,
+                user_id=user_id,
+                trophy_id=trophy_id,
+            )
 
             session.add(scores)
 

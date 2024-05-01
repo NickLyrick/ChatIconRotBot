@@ -28,18 +28,15 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
         if hunter_id is not None:
 
-            history_id = await request.get_history_id(chat_id=chat_id,
-                                                      user_id=hunter_id,
-                                                      game=game,
-                                                      platform=platform)
+            history_id = await request.get_history_id(
+                chat_id=chat_id, user_id=hunter_id, game=game, platform=platform
+            )
             callback_data = GameSurveyCallbackData(
-                hunter_id=hunter_id,
-                photo_id=file_id,
-                game=game,
-                history_id=history_id
+                hunter_id=hunter_id, photo_id=file_id, game=game, history_id=history_id
             )
 
-            await bot.send_message(
+            await bot.send_photo(
+                photo=file_id,
                 chat_id=chat_id,
                 text=text,
                 reply_markup=build_start_survey_keyboard(
