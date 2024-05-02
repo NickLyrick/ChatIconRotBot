@@ -137,7 +137,7 @@ async def show_settings(message: types.Message, bot: Bot, request: Request):
         )
 
         if default_avatar is not None:
-            photo_id = default_avatar[0]
+            photo_id = default_avatar
             await message.reply_photo(photo=photo_id, caption=text)
         else:
             text += "\nСтандартный аватар не установлен"
