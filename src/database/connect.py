@@ -124,7 +124,11 @@ class Request:
         async with self.session() as session:
             records = (
                 await session.scalars(
-                    select(Platinum).where(Platinum.chat_id == chat_id)
+                    select(Platinum)
+                    .where(Platinum.chat_id == chat_id)
+                    .where(Platinum.hunter != "*Default*")
+                    .where(Platinum.game != "*Default*")
+                    .order_by(Platinum.id)
                 )
             ).all()
 
