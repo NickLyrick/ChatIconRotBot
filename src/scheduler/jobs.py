@@ -3,13 +3,18 @@
 import datetime
 import logging
 
+from operator import itemgetter
+from typing import List, Tuple
+
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
 from aiogram.utils import formatting
 
 from src.bot.settings import settings
 from src.database.connect import Request
+from src.database.schemas import Scores
 from src.keyboards.inline import GameSurveyCallbackData, build_start_survey_keyboard
+from src.utility.tools import table
 
 
 async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
@@ -54,6 +59,31 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
             await bot.send_message(
                 admin_id, text=f"{__name__}:\n {formatting.Pre(e).as_html()}"
             )
+
+async def send_results(bot: Bot, request: Request, chat_id: int, score):
+    """Get and send results to Chat"""
+    text = "Результаты опроса в категории "
+    if score is Scores.game:
+        text += "Игра"
+    elif score is Scores.picture:
+        text += "Картинка"
+    elif score is Scores.difficulty:
+        text += "Сложность"
+
+    results = await request.get_survey_results(chat_id=chat_id, field=score)
+    if len(results) == 0:
+        await bot.send_message(chat_id=chat_id, text=f"{text}: опрос не проводился")
+    else:
+        await bot.send_media_group(chat_id=chat_id,
+                                media=table(results,
+                                            ["Hunter", "Game", "Score"],
+                                            text))
+
+
+async def finish_survey(bot: Bot, request: Request, chat_id: int):
+    """Distribution of survey results"""
+    for score in (Scores.game, Scores.picture, Scores.difficulty):
+        await send_results(bot=bot, request=request, chat_id=chat_id, score=score)
 
 
 async def check_db_connection(bot: Bot, request: Request):
