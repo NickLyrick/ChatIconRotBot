@@ -21,12 +21,15 @@ def trim(src):
     return img
 
 
-def table(data, columns, caption: str = None):
+def table(data, columns, caption: str = None, name: str = None):
     """Generate a table from the data."""
 
     # Create DataFrame
     df = pd.DataFrame(data, columns=columns)
     df.index += 1
+
+    if name is not None:
+        df.style.set_caption(name)
 
     css_text = (
         "@page { size: 800px 715px; padding: 0px; margin: 0px; }\n"
