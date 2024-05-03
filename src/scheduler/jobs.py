@@ -2,9 +2,7 @@
 
 import datetime
 import logging
-
-from operator import itemgetter
-from typing import List, Tuple
+from dateutil.relativedelta import relativedelta
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
@@ -64,7 +62,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
     """Distribution of survey results"""
     media = []
     for score in (Scores.game, Scores.picture, Scores.difficulty):
-        text = "Результаты опроса в категории "
+        text = "Результаты в категории "
         if score is Scores.game:
             text += "Игра"
         elif score is Scores.picture:
@@ -76,13 +74,16 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         if len(results) == 0:
             break
 
-        media.extend(table(results, ["Hunter", "Game", "Score"]), text)
+        media.extend(table(data=results,
+                           columns=["Hunter", "Game", "Score"],
+                           name=text))
 
     if len(media) == 0:
         await bot.send_message(chat_id=chat_id, text="Опрос не проводился")
     else:
-        await bot.send_media_group(chat_id=chat_id,
-                                   media=media)
+        date = datetime.datetime.now() - relativedelta(month=1)
+        media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
+        await bot.send_media_group(chat_id=chat_id, media=media)
 
 
 async def check_db_connection(bot: Bot, request: Request):
