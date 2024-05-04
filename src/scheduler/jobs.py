@@ -74,6 +74,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         if len(results) == 0:
             break
 
+        results = [(result[0], result[1], round(result[2], 2)) for result in results]
         media.extend(table(data=results,
                            columns=["Hunter", "Game", "Score"],
                            name=text))
@@ -81,7 +82,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
     if len(media) == 0:
         await bot.send_message(chat_id=chat_id, text="Опрос не проводился")
     else:
-        date = datetime.datetime.now() - relativedelta(month=1)
+        date = datetime.datetime.now() + relativedelta(months=-1)
         media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
         await bot.send_media_group(chat_id=chat_id, media=media)
 
