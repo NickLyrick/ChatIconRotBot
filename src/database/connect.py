@@ -3,7 +3,7 @@ which is responsible for handling all the database queries."""
 
 import logging
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from pytz import timezone as tz
 from sqlalchemy import delete, desc, func, select
