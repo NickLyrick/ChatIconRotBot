@@ -65,7 +65,7 @@ def build_game_score_keyboard(
         callback_data.game_score = i
         builder.button(text=str(i), callback_data=callback_data.pack())
 
-    callback_data.difficulty_score = None
+    callback_data.game_score = None
     builder.button(text="Пропустить", callback_data=callback_data.pack())
 
     callback_data.state = SurveyState.CANCELED
