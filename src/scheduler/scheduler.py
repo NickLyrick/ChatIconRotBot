@@ -3,10 +3,11 @@
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.database import Request
-from src.scheduler.jobs import change_avatar, check_db_connection
+from src.scheduler.jobs import change_avatar, check_db_connection, finish_survey
 
 
 class Scheduler:
@@ -34,9 +35,20 @@ class Scheduler:
         )
 
         for chat_id in self.where_run:
+            chat = await bot.get_chat(chat_id=chat_id)
+            if chat.type == 'private':
+                continue
             date = self.where_run[chat_id]["date"]
             delta = self.where_run[chat_id]["delta"]
             await self.add_change_avatar_job(bot, request, chat_id, date, delta)
+
+            # Survey Results each 1st day of the month in 09:00 UTC
+            self.scheduler.add_job(
+                func=finish_survey,
+                trigger=CronTrigger.from_crontab('0 9 1 * *'),
+                id=f"{chat_id}_survey",
+                args=[bot, request, chat_id]
+            )
 
     async def add_change_avatar_job(self, bot, request, chat_id, date, delta):
         """Add a job to the scheduler."""
