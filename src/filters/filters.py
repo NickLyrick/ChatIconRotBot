@@ -8,6 +8,8 @@ from aiogram.filters import BaseFilter
 from aiogram.types import Message
 from aiogram.utils import formatting
 
+from src.bot.settings import settings
+
 
 class CorrectPlatinumRecord(BaseFilter):
     """Check if the message is a correct platinum record."""
@@ -67,7 +69,10 @@ class CheckPermissions(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         try:
             member = await message.chat.get_member(message.from_user.id)
-            if member.status == ChatMemberStatus.CREATOR or member.can_change_info:
+            if (
+                member.status == ChatMemberStatus.CREATOR
+                or member.user.id in settings.bot.admin_ids
+            ):
                 return True
             else:
                 await message.reply(

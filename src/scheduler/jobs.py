@@ -30,7 +30,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 photo=BufferedInputFile(file=avatar.read(), filename="avatar.png"),
             )
 
-        if hunter_id is not None:
+        if hunter_id is not None and game is not None:
             history_id = await request.get_history_id(
                 chat_id=chat_id, user_id=hunter_id, game=game, platform=platform
             )
@@ -41,7 +41,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
             avatar.seek(0)
 
-            await bot.send_photo(
+            sended_message = await bot.send_photo(
                 photo=BufferedInputFile(file=avatar.read(), filename="game.png"),
                 chat_id=chat_id,
                 caption=text,
@@ -49,6 +49,9 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                     text="Оценить", callback_data=callback_data
                 ),
             )
+            await bot.pin_chat_message(chat_id=chat_id, message_id=sended_message.message_id)
+        else:
+            await bot.send_message(chat_id=chat_id, text=text)
 
         t_delta = datetime.timedelta(days=where_run[chat_id]["delta"])
         date = where_run[chat_id]["date"] + t_delta
