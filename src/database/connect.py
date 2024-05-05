@@ -151,6 +151,10 @@ class Request:
                 else:
                     text = "Стандартный аватар не задан. Оставляю всё как есть."
                     file_id = None
+
+                hunter_id = None
+                game = None
+                platform = None
             else:
                 record = records[0]
 

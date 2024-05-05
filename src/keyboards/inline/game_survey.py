@@ -65,10 +65,13 @@ def build_game_score_keyboard(
         callback_data.game_score = i
         builder.button(text=str(i), callback_data=callback_data.pack())
 
+    callback_data.difficulty_score = None
+    builder.button(text="Пропустить", callback_data=callback_data.pack())
+
     callback_data.state = SurveyState.CANCELED
     builder.button(text="Отмена", callback_data=callback_data.pack())
 
-    builder.adjust(5, 5, 1)
+    builder.adjust(5, 5, 1, 1)
 
     return builder.as_markup()
 

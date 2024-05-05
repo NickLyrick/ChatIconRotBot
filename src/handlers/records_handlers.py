@@ -87,7 +87,9 @@ async def delete_game(message: types.Message, bot: Bot, request: Request):
     username = message.from_user.username
     user_id = message.from_user.id
 
-    text = await request.delete_record(chat_id=chat_id, username=username, user_id=user_id)
+    text = await request.delete_record(
+        chat_id=chat_id, username=username, user_id=user_id
+    )
 
     await message.reply(text)
 

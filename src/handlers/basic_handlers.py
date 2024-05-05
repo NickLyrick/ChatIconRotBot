@@ -2,6 +2,7 @@
 
 # TODO: Implement user chat commands
 from aiogram import Bot, Router, types
+from aiogram.enums import ChatMemberStatus
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BotCommandScopeAllChatAdministrators,
@@ -43,32 +44,25 @@ async def bot_stopped(bot: Bot) -> None:
 async def command_start(message: types.Message) -> None:
     """Send welcome message to user when he starts chat with bot."""
 
-    # await request.add_user_data(message.from_user.id, message.from_user.username)
     await message.answer(settings.bot.welcome_message)
 
 
-@basic_router.message(Command("help"), my_filters.check_permissions)
+@basic_router.message(Command("help"))
 async def help_admin_command(message: types.Message) -> None:
     """Send help message to admin when he uses /help command."""
 
-    if message.chat.type == "private":
-        pass
-        # await message.reply(text=settings.bot.user_help_message)
-    else:
+    member = await message.chat.get_member(message.from_user.id)
+    users = message.chat.active_usernames
+    print(users)
+    if (
+        member.status == ChatMemberStatus.CREATOR
+        or member.user.id in settings.bot.admin_ids
+    ):
         await message.reply(
             text=settings.bot.chat_help_message
             + "\n\n"
             + settings.bot.bot_admin_help_message
         )
-
-
-@basic_router.message(Command("help"))
-async def help_command(message: types.Message) -> None:
-    """Send help message to user when he uses /help command."""
-
-    if message.chat.type == "private":
-        pass
-        # await message.reply(text=settings.bot.user_help_message)
     else:
         await message.reply(text=settings.bot.chat_help_message)
 
