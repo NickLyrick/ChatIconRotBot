@@ -17,6 +17,7 @@ from src.utility.tools import table
 
 async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
     """Change chat avatar."""
+
     try:
         logging.info(f"Changing avatar for chat {chat_id}")
 
@@ -60,6 +61,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
 async def finish_survey(bot: Bot, request: Request, chat_id: int):
     """Distribution of survey results"""
+    
     media = []
     for score in (Scores.game, Scores.picture, Scores.difficulty):
         text = "Результаты в категории "

@@ -47,7 +47,7 @@ def table(data, columns, caption: str = None, name: str = None):
     # Generate HTML with CSS
     html_string = df.to_html()
     if name is not None:
-        html_string = f'<h4>{name}</h4>\n' + html_string
+        html_string = f"<h4>{name}</h4>\n" + html_string
     html = wsp.HTML(string=html_string)
     pages = convert_from_bytes(html.write_pdf(stylesheets=[css]), dpi=100)
 
@@ -59,8 +59,7 @@ def table(data, columns, caption: str = None, name: str = None):
         img.seek(0)
 
         page = types.InputMediaPhoto(
-                type="photo",
-                media=types.BufferedInputFile(img.read(), filename=f"{i}.png")
+            type="photo", media=types.BufferedInputFile(img.read(), filename=f"{i}.png")
         )
         if i == 0:
             page.caption = caption

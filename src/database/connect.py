@@ -46,6 +46,7 @@ class Request:
 
     async def get_chats(self) -> dict:
         """This method is used to get all the chats from the database."""
+
         async with self.session() as session:
             statement = select(Chat)
 
@@ -56,6 +57,7 @@ class Request:
 
     async def set_chat_date(self, chat_id, date) -> None:
         """This method is used to set the date of the chat in the database."""
+
         async with self.session() as session:
             statement = select(Chat).where(Chat.chat_id == chat_id)
             chat = (await session.scalars(statement)).one()
@@ -348,12 +350,14 @@ class Request:
 
             await session.commit()
 
-    async def get_survey_results(self, chat_id: int, field) -> List[Tuple[str, str, float]]:
+    async def get_survey_results(
+        self, chat_id: int, field
+    ) -> List[Tuple[str, str, float]]:
         """This method is used to get the survey results."""
+
         async with self.session() as session:
             statement = (
-                select(Scores.trophy_id,
-                       func.avg(field))
+                select(Scores.trophy_id, func.avg(field))
                 .where(Scores.trophy_id == History.id)
                 .where(History.chat_id == chat_id)
                 .group_by(Scores.trophy_id)
@@ -364,10 +368,7 @@ class Request:
 
             results = []
             for trophy_id, score in results_score:
-                statement_history = (
-                    select(History)
-                    .where(History.id == trophy_id)
-                )
+                statement_history = select(History).where(History.id == trophy_id)
 
                 history = await session.scalar(statement_history)
 
