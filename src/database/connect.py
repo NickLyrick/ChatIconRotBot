@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
-from .schemas import Chat, History, Platinum, Scores
+from .schemas import Chat, History, Platinum, Scores, Surveys
 
 
 class Request:
@@ -375,3 +375,38 @@ class Request:
                 results.append((history.hunter, history.game, score))
 
         return results
+
+    async def add_survey_history(self, chat_id: int):
+        """This method is used to add results surveys to surveys history"""
+        async with self.session() as session:
+            statement = (
+                select(Scores.trophy_id, func.avg(Scores.game),
+                       func.avg(Scores.picture), func.avg(Scores.difficulty))
+                .where(Scores.trophy_id == History.id)
+                .where(History.chat_id == chat_id)
+                .group_by(Scores.trophy_id)
+            )
+
+            scores = (await session.execute(statement)).all()
+
+            surveys = [Surveys(trophy_id=score[0],
+                               game=score[1],
+                               picture=score[2],
+                               difficulty=score[3]) for score in scores]
+
+            session.add_all(surveys)
+
+            await session.commit()
+
+    async def delete_scores(self, chat_id: int):
+        """This method is used to delete scores"""
+
+        async with self.session() as session:
+            statement_delete = (
+                delete(Scores)
+                .where(Scores.trophy_id == History.id)
+                .where(History.chat_id == chat_id)
+            )
+
+            await session.execute(statement_delete)
+            await session.commit()
