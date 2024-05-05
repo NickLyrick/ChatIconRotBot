@@ -52,8 +52,6 @@ async def help_admin_command(message: types.Message) -> None:
     """Send help message to admin when he uses /help command."""
 
     member = await message.chat.get_member(message.from_user.id)
-    users = message.chat.active_usernames
-    print(users)
     if (
         member.status == ChatMemberStatus.CREATOR
         or member.user.id in settings.bot.admin_ids
