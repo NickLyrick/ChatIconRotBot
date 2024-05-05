@@ -61,7 +61,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
 async def finish_survey(bot: Bot, request: Request, chat_id: int):
     """Distribution of survey results"""
-    
+
     media = []
     for score in (Scores.game, Scores.picture, Scores.difficulty):
         text = "Результаты в категории "
@@ -87,6 +87,8 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         date = datetime.datetime.now() + relativedelta(months=-1)
         media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
         await bot.send_media_group(chat_id=chat_id, media=media)
+        await request.add_survey_history(chat_id=chat_id)
+        await request.delete_scores(chat_id=chat_id)
 
 
 async def check_db_connection(bot: Bot, request: Request):
