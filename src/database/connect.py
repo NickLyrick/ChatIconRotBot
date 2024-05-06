@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Tuple, Optional
 
 from pytz import timezone as tz
-from sqlalchemy import delete, desc, func, select
+from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.bot.settings import settings
@@ -352,6 +352,19 @@ class Request:
                 existing_record.picture = picture_score
                 existing_record.difficulty = difficulty_score
 
+            await session.commit()
+
+    async def add_avatar_date(self, history_id: int, date: datetime):
+        """This method is used to add avatar date to the history table."""
+
+        async with self.session() as session:
+            statement = (
+                update(History)
+                .where(History.id == history_id)
+                .values(avatar_date=date)
+            )
+
+            await session.execute(statement)
             await session.commit()
 
     async def get_survey_results(

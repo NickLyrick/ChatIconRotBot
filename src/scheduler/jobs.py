@@ -1,7 +1,7 @@
 """Jobs for scheduler."""
 
-import datetime
 import logging
+from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 
 from aiogram import Bot
@@ -35,6 +35,8 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 chat_id=chat_id, user_id=hunter_id, game=game, platform=platform
             )
 
+            await request.add_avatar_date(history_id=history_id, date=datetime.now(timezone.utc))
+
             callback_data = GameSurveyCallbackData(
                 hunter_id=hunter_id, history_id=history_id
             )
@@ -53,7 +55,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
         else:
             await bot.send_message(chat_id=chat_id, text=text)
 
-        t_delta = datetime.timedelta(days=where_run[chat_id]["delta"])
+        t_delta = timedelta(days=where_run[chat_id]["delta"])
         date = where_run[chat_id]["date"] + t_delta
         await request.set_chat_date(chat_id, date)
     except Exception as e:
@@ -90,7 +92,6 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         date = datetime.datetime.now() + relativedelta(months=-1)
         media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
         await bot.send_media_group(chat_id=chat_id, media=media)
-
 
 async def check_db_connection(bot: Bot, request: Request):
     """Check database connection."""
