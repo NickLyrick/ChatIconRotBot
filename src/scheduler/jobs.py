@@ -1,7 +1,7 @@
 """Jobs for scheduler."""
 
-import datetime
 import logging
+from datetime import datetime, timezone, timedelta
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
@@ -31,6 +31,8 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 chat_id=chat_id, user_id=hunter_id, game=game, platform=platform
             )
 
+            await request.add_avatar_date(history_id=history_id, date=datetime.now(timezone.utc))
+
             callback_data = GameSurveyCallbackData(
                 hunter_id=hunter_id, history_id=history_id
             )
@@ -46,7 +48,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 ),
             )
 
-        t_delta = datetime.timedelta(days=where_run[chat_id]["delta"])
+        t_delta = timedelta(days=where_run[chat_id]["delta"])
         date = where_run[chat_id]["date"] + t_delta
         await request.set_chat_date(chat_id, date)
     except Exception as e:
@@ -54,7 +56,6 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
             await bot.send_message(
                 admin_id, text=f"{__name__}:\n {formatting.Pre(e).as_html()}"
             )
-
 
 async def check_db_connection(bot: Bot, request: Request):
     """Check database connection."""
