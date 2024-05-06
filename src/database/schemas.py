@@ -59,9 +59,7 @@ class Surveys(Base):
     """This class is the represente declare table surveys"""
     __tablename__ = "surveys"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    trophy_id = Column(BigInteger, ForeignKey(History.id), nullable=False)
-    picture = Column(Double, nullable=False)
-    game = Column(Double, nullable=False)
-    difficulty = Column(Double, nullable=False)
-    date = Column(DateTime(timezone=True), server_default=func.now())
+    trophy_id = Column(BigInteger,ForeignKey(History.id), nullable=False, primary_key=True)
+    picture = Column(Double)
+    game = Column(Double)
+    difficulty = Column(Double)
