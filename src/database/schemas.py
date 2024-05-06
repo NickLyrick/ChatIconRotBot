@@ -28,6 +28,7 @@ class History(Base):
     date = Column(DateTime(timezone=True), server_default=func.now())
     platform = Column(Text, default="Playstation")
     user_id = Column(BigInteger)
+    avatar_date = Column(DateTime(timezone=True))
 
 
 class Platinum(Base):
