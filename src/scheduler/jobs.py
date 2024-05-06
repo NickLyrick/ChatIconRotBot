@@ -1,7 +1,7 @@
 """Jobs for scheduler."""
 
-import datetime
 import logging
+from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 
 from aiogram import Bot
@@ -30,10 +30,12 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 photo=BufferedInputFile(file=avatar.read(), filename="avatar.png"),
             )
 
-        if hunter_id is not None:
+        if hunter_id is not None and game is not None:
             history_id = await request.get_history_id(
                 chat_id=chat_id, user_id=hunter_id, game=game, platform=platform
             )
+
+            await request.add_avatar_date(history_id=history_id, date=datetime.now(timezone.utc))
 
             callback_data = GameSurveyCallbackData(
                 hunter_id=hunter_id, history_id=history_id
@@ -41,7 +43,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
             avatar.seek(0)
 
-            await bot.send_photo(
+            sended_message = await bot.send_photo(
                 photo=BufferedInputFile(file=avatar.read(), filename="game.png"),
                 chat_id=chat_id,
                 caption=text,
@@ -49,8 +51,11 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                     text="Оценить", callback_data=callback_data
                 ),
             )
+            await bot.pin_chat_message(chat_id=chat_id, message_id=sended_message.message_id)
+        else:
+            await bot.send_message(chat_id=chat_id, text=text)
 
-        t_delta = datetime.timedelta(days=where_run[chat_id]["delta"])
+        t_delta = timedelta(days=where_run[chat_id]["delta"])
         date = where_run[chat_id]["date"] + t_delta
         await request.set_chat_date(chat_id, date)
     except Exception as e:
@@ -89,7 +94,6 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         await bot.send_media_group(chat_id=chat_id, media=media)
         await request.add_survey_history(chat_id=chat_id)
         await request.delete_scores(chat_id=chat_id)
-
 
 async def check_db_connection(bot: Bot, request: Request):
     """Check database connection."""
