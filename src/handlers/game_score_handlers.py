@@ -1,9 +1,11 @@
 import re
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery
+from aiogram.types.error_event import ErrorEvent
 from aiogram.utils import formatting
 
+from src.bot.settings import settings
 from src.database import Request
 
 from ..keyboards.inline import (
@@ -15,7 +17,7 @@ from ..keyboards.inline import (
     build_start_survey_keyboard,
 )
 
-game_score_router = Router()
+game_score_router = Router(name=__name__)
 
 
 @game_score_router.callback_query(
@@ -168,3 +170,15 @@ async def process_result(
             text="Изменить оценку", callback_data=callback_data
         ),
     )
+
+
+@game_score_router.error()
+async def error_handler(event: ErrorEvent, bot: Bot) -> None:
+    """Handle errors."""
+
+    content = formatting.as_list(
+        formatting.Text(f"Ошибка в {__name__}:"),
+        formatting.Pre(event.exception),
+    )
+    for admin_id in settings.bot.admin_ids:
+        await bot.send_message(admin_id, text=content.as_html())
