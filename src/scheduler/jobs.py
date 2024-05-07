@@ -67,7 +67,11 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 async def finish_survey(bot: Bot, request: Request, chat_id: int):
     """Distribution of survey results"""
 
+    now = datetime.now(timezone.utc)
+    date = now + relativedelta(months=-1)
+
     media = []
+    trophy_ids = set()
     for score in (Scores.game, Scores.picture, Scores.difficulty):
         text = "Результаты в категории "
         if score is Scores.game:
@@ -77,23 +81,28 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         elif score is Scores.difficulty:
             text += "Сложность"
 
-        results = await request.get_survey_results(chat_id=chat_id, field=score)
+        # [(trophy_id, hunter, game, score)]
+        results = await request.get_survey_results(chat_id=chat_id,
+                                                   field=score,
+                                                   from_date=date,
+                                                   to_date=now)
         if len(results) == 0:
             break
 
-        results = [(result[0], result[1], round(result[2], 2)) for result in results]
-        media.extend(table(data=results,
+        trophy_ids.update(row[0] for row in results)
+
+        media.extend(table(data=[(row[1], row[2], row[3]) for row in results],
                            columns=["Hunter", "Game", "Score"],
                            name=text))
+        await request.add_survey_history(score_type=score.key,
+                                         data=[(row[0], row[3]) for row in results])
 
     if len(media) == 0:
         await bot.send_message(chat_id=chat_id, text="Опрос не проводился")
     else:
-        date = datetime.datetime.now() + relativedelta(months=-1)
         media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
         await bot.send_media_group(chat_id=chat_id, media=media)
-        await request.add_survey_history(chat_id=chat_id)
-        await request.delete_scores(chat_id=chat_id)
+        await request.delete_scores(trophy_ids=trophy_ids)
 
 async def check_db_connection(bot: Bot, request: Request):
     """Check database connection."""

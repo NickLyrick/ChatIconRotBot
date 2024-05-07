@@ -6,7 +6,8 @@ from datetime import datetime
 from typing import List, Tuple, Optional
 
 from pytz import timezone as tz
-from sqlalchemy import delete, desc, func, select, update
+from sqlalchemy import delete, desc, func, select, update, between, bindparam
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.bot.settings import settings
@@ -368,61 +369,48 @@ class Request:
             await session.commit()
 
     async def get_survey_results(
-        self, chat_id: int, field
-    ) -> List[Tuple[str, str, float]]:
+        self, chat_id: int, field, from_date: datetime, to_date: datetime
+    ) -> List[Tuple[int, str, str, float]]:
         """This method is used to get the survey results."""
 
         async with self.session() as session:
+            score_avg = func.round(func.avg(field), 2)
             statement = (
-                select(Scores.trophy_id, func.avg(field))
-                .where(Scores.trophy_id == History.id)
+                select(Scores.trophy_id, History.hunter, History.game, score_avg)
+                .join(History, History.id == Scores.trophy_id)
                 .where(History.chat_id == chat_id)
-                .group_by(Scores.trophy_id)
-                .order_by(desc(func.avg(field)))
+                .where(between(History.avatar_date, from_date, to_date))
+                .group_by(Scores.trophy_id, History.hunter, History.game)
+                .order_by(desc(score_avg))
             )
 
-            results_score = (await session.execute(statement)).all()
+            results_score = await session.execute(statement)
 
-            results = []
-            for trophy_id, score in results_score:
-                statement_history = select(History).where(History.id == trophy_id)
+        return results_score.all()
 
-                history = await session.scalar(statement_history)
-
-                results.append((history.hunter, history.game, score))
-
-        return results
-
-    async def add_survey_history(self, chat_id: int):
+    async def add_survey_history(
+            self, score_type: str, data: List[Tuple[int, float]]
+    ):
         """This method is used to add results surveys to surveys history"""
         async with self.session() as session:
             statement = (
-                select(Scores.trophy_id, func.avg(Scores.game),
-                       func.avg(Scores.picture), func.avg(Scores.difficulty))
-                .where(Scores.trophy_id == History.id)
-                .where(History.chat_id == chat_id)
-                .group_by(Scores.trophy_id)
+                insert(Surveys)
+                .values(**{'trophy_id': bindparam("id"), score_type: bindparam('score')})
+                .on_conflict_do_update(index_elements=['trophy_id'],
+                                       set_={score_type: bindparam('score')})
             )
 
-            scores = (await session.execute(statement)).all()
-
-            surveys = [Surveys(trophy_id=score[0],
-                               game=score[1],
-                               picture=score[2],
-                               difficulty=score[3]) for score in scores]
-
-            session.add_all(surveys)
-
+            await session.execute(statement,
+                                  [{"id": row[0], 'score': row[1]} for row in data])
             await session.commit()
 
-    async def delete_scores(self, chat_id: int):
+    async def delete_scores(self, trophy_ids: List[int]):
         """This method is used to delete scores"""
 
         async with self.session() as session:
             statement_delete = (
                 delete(Scores)
-                .where(Scores.trophy_id == History.id)
-                .where(History.chat_id == chat_id)
+                .where(Scores.trophy_id.in_(trophy_ids))
             )
 
             await session.execute(statement_delete)
