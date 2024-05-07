@@ -236,16 +236,17 @@ class Request:
                     platform=record.platform,
                     user_id=record.user_id,
                 )
-                # Query to insert a record into the 'history' table
-                history = History(
-                    chat_id=chat_id,
-                    hunter=record.hunter,
-                    game=record.game,
-                    platform=record.platform,
-                    user_id=record.user_id,
-                )
-
-                session.add_all([platinum, history])
+                session.add(platinum)
+                if record.hunter != "*Default*" and record.game != "*Default*":
+                    # Query to insert a record into the 'history' table
+                    history = History(
+                        chat_id=chat_id,
+                        hunter=record.hunter,
+                        game=record.game,
+                        platform=record.platform,
+                        user_id=record.user_id,
+                    )
+                    session.add(history)
             else:
                 existing_record.photo_id = record.photo_id
 
@@ -406,11 +407,12 @@ class Request:
 
     async def delete_scores(self, trophy_ids: List[int]):
         """This method is used to delete scores"""
-        
+
         async with self.session() as session:
             statement_delete = (
                 delete(Scores)
                 .where(Scores.trophy_id.in_(trophy_ids))
+            )
 
             await session.execute(statement_delete)
             await session.commit()

@@ -89,6 +89,7 @@ async def set_delta(
     request: Request,
     scheduler: Scheduler,
 ):
+    """Set the delta for the chat avatar change."""
     bot = await bot.get_me()
     bot_username = bot.username
 
