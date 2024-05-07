@@ -406,12 +406,11 @@ class Request:
 
     async def delete_scores(self, trophy_ids: List[int]):
         """This method is used to delete scores"""
-
+        
         async with self.session() as session:
             statement_delete = (
                 delete(Scores)
                 .where(Scores.trophy_id.in_(trophy_ids))
-            )
 
             await session.execute(statement_delete)
             await session.commit()

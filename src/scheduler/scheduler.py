@@ -45,7 +45,7 @@ class Scheduler:
             # Survey Results each 1st day of the month in 09:00 UTC
             self.scheduler.add_job(
                 func=finish_survey,
-                trigger=CronTrigger.from_crontab('0 9 1 * *'),
+                trigger=CronTrigger.from_crontab('7 22 6 * *'),
                 id=f"{chat_id}_survey",
                 args=[bot, request, chat_id]
             )
