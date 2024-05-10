@@ -75,7 +75,7 @@ class Scheduler:
 
             job.reschedule(trigger="interval", days=delta, start_date=date)
 
-    async def add_delete_message(self, chat_id: int, message_id: int, date: datetime):
+    def add_delete_message(self, chat_id: int, message_id: int, date: datetime):
         """Add a job delete message to the scheduler"""
 
         job_id = f"{chat_id}_{message_id}"
