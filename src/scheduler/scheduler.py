@@ -1,6 +1,6 @@
 """This module contains the Scheduler class."""
 
-from typing import Callable
+from typing import Callable, Any
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
@@ -18,7 +18,7 @@ class Scheduler:
         self.bot = bot
         self.request = request
 
-    async def start(self, avatar_func: Callable[[Bot, Request, int, dict], None]):
+    async def start(self, avatar_func: Callable[[Bot, Request, int, Any], None]):
         """Start the scheduler."""
 
         self.scheduler.start()
@@ -48,7 +48,7 @@ class Scheduler:
         )
 
     async def add_change_avatar_job(self,
-                                    func: Callable[[Bot, Request, int, dict], None],
+                                    func: Callable[[Bot, Request, int, Any], None],
                                     chat_id: int,
                                     date: datetime,
                                     delta: timedelta):
@@ -63,7 +63,7 @@ class Scheduler:
                 days=1,
                 start_date=date,
                 id=str(chat_id),
-                args=[self.bot, self.request, chat_id, self.where_run],
+                args=[self.bot, self.request, chat_id, self],
             )
         else:
             if date is None:
@@ -74,7 +74,6 @@ class Scheduler:
                 self.where_run[chat_id]["date"] = date
 
             job.reschedule(trigger="interval", days=delta, start_date=date)
-            job.modify(args=[self.bot, self.request, chat_id, self.where_run])
 
     async def add_delete_message(self, chat_id: int, message_id: int, date: datetime):
         """Add a job delete message to the scheduler"""

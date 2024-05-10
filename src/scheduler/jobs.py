@@ -13,13 +13,17 @@ from src.database.connect import Request
 from src.database.schemas import Scores
 from src.keyboards.inline import GameSurveyCallbackData, build_start_survey_keyboard
 from src.utility.tools import table
+from src.scheduler.scheduler import Scheduler
 
 
-async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
+async def change_avatar(bot: Bot,
+                        request: Request,
+                        chat_id: int,
+                        scheduler: Scheduler):
     """Change chat avatar."""
 
     try:
-        logging.info(f"Changing avatar for chat {chat_id}")
+        logging.info("Changing avatar for chat %i", chat_id)
 
         file_id, hunter_id, game, platform, text = await request.get_avatar(chat_id)
 
@@ -49,14 +53,14 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 caption=text,
                 reply_markup=build_start_survey_keyboard(
                     text="Оценить", callback_data=callback_data
-                ),
+                )
             )
             await bot.pin_chat_message(chat_id=chat_id, message_id=sended_message.message_id)
         else:
             await bot.send_message(chat_id=chat_id, text=text)
 
-        t_delta = timedelta(days=where_run[chat_id]["delta"])
-        date = where_run[chat_id]["date"] + t_delta
+        t_delta = timedelta(days=scheduler.where_run[chat_id]["delta"])
+        date = scheduler.where_run[chat_id]["date"] + t_delta
         await request.set_chat_date(chat_id, date)
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
