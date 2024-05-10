@@ -8,6 +8,7 @@ from aiogram.utils.chat_action import ChatActionMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.database import Request
+from src.scheduler.jobs import change_avatar, check_db_connection
 
 # Routers
 from src.handlers.basic_handlers import basic_router
@@ -47,8 +48,11 @@ async def register_middlewares(dp: Dispatcher, bot: Bot) -> None:
     logging.info("Connection created")
 
     # Create scheduler
-    scheduler = Scheduler(AsyncIOScheduler(timezone=pytz.utc))
-    await scheduler.start(bot=bot, request=request)
+    scheduler = Scheduler(scheduler=AsyncIOScheduler(timezone=pytz.utc),
+                          bot=bot,
+                          request=request)
+    await scheduler.start(avatar_func=change_avatar)
+    await scheduler.add_check_db(func=check_db_connection)
     logging.info("Scheduler started")
 
     # Create middlewares
