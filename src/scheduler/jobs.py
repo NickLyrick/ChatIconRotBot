@@ -56,6 +56,12 @@ async def change_avatar(bot: Bot,
                 )
             )
             await bot.pin_chat_message(chat_id=chat_id, message_id=sended_message.message_id)
+
+            # Added delayed delete survey
+            date_delete = datetime.now(timezone.utc) + timedelta(2) - timedelta(hours=1)
+            scheduler.add_delete_message(chat_id=chat_id,
+                                         message_id=sended_message.message_id,
+                                         date=date_delete)
         else:
             await bot.send_message(chat_id=chat_id, text=text)
 

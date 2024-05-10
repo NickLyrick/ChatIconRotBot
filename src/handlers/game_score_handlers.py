@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery
@@ -7,6 +8,7 @@ from aiogram.utils import formatting
 
 from src.bot.settings import settings
 from src.database import Request
+from src.scheduler.scheduler import Scheduler
 
 from ..keyboards.inline import (
     GameSurveyCallbackData,
@@ -42,7 +44,9 @@ async def process_cancel(
     GameSurveyCallbackData.filter(F.state == SurveyState.IDLE)
 )
 async def start_survey(
-    callback_query: CallbackQuery, callback_data: GameSurveyCallbackData
+    callback_query: CallbackQuery,
+    callback_data: GameSurveyCallbackData,
+    scheduler: Scheduler
 ) -> None:
     """Start Survey Callback."""
 
@@ -55,9 +59,9 @@ async def start_survey(
     )
 
     game_name = re.findall('"(.*?)"', callback_query.message.caption)[-1]
-    hunter_name = re.findall("@(\w+)", callback_query.message.caption)[-1]
+    hunter_name = re.findall(r"@(\w+)", callback_query.message.caption)[-1]
 
-    await callback_query.bot.send_photo(
+    message = await callback_query.bot.send_photo(
         chat_id=callback_data.user_id,
         photo=BufferedInputFile(file=picture.read(), filename="game.png"),
         caption=f"Оцените игру {game_name} от {hunter_name}",
@@ -65,6 +69,12 @@ async def start_survey(
             text="Оценить",
             callback_data=callback_data,
         ),
+    )
+    date_delete = datetime.now(timezone.utc) + timedelta(days=2) - timedelta(hours=1)
+    scheduler.add_delete_message(
+        chat_id=callback_data.user_id,
+        message_id=message.message_id,
+        date=date_delete
     )
 
 
@@ -140,7 +150,7 @@ async def process_difficulty_score(
 async def process_result(
     callback_query: CallbackQuery,
     callback_data: GameSurveyCallbackData,
-    request: Request,
+    request: Request
 ) -> None:
     """Result Callback."""
 
