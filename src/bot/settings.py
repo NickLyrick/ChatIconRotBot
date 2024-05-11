@@ -1,6 +1,7 @@
 """Configuration for bot"""
 
 from dataclasses import dataclass
+from datetime import timedelta
 from os import environ
 
 from src.bot import commands
@@ -25,11 +26,21 @@ class DB:
 
 
 @dataclass
+class Scheduler:
+    """Configuration for Scheduler"""
+
+    # TODO: replace by right values after testing
+    auto_delete_message_from_groups: timedelta = timedelta(minutes=1)
+    auto_delete_message_from_private: timedelta = timedelta(minutes=1)
+
+
+@dataclass
 class Settings:
     """Configuration for bot and DataBase"""
 
     bot: Bot
     db: DB
+    scheduler: Scheduler
 
 
 settings = Settings(

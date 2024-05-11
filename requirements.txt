@@ -1,12 +1,12 @@
-aiogram==3.5.0
+aiogram==3.6.0
 APScheduler==3.10.4
 pytz~=2024.1
 wikipedia~=1.4.0
 pillow~=10.2.0
-weasyprint~=62.0
+weasyprint~=62.1
 typing~=3.7.4.3
 pandas~=2.2.0
 pdf2image~=1.17.0
 pyYAML==6.0.1
-SQLAlchemy==2.0.29
+SQLAlchemy==2.0.30
 asyncpg==0.29.0

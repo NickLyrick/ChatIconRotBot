@@ -100,7 +100,7 @@ async def set_delta(
         if delta > 0:
             await request.set_chat_delta(chat_id=chat_id, delta=delta)
             await scheduler.add_change_avatar_job(
-                bot=bot, request=request, chat_id=chat_id, date=None, delta=delta
+                bot=bot, request=request, chat_id=chat_id, date=None, delta=None
             )
             text = f"Промежуток между сменами фото чата успешно установлен на {delta}д."
         else:
@@ -124,7 +124,7 @@ async def set_delta(
     my_filters.from_group_or_supergroup,
     my_filters.check_permissions,
 )
-async def show_settings(message: types.Message, bot: Bot, request: Request):
+async def show_settings(message: types.Message, request: Request):
     """Show the current chat settings."""
 
     chat_id = message.chat.id

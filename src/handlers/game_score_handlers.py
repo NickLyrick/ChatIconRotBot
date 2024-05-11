@@ -7,6 +7,7 @@ from aiogram.utils import formatting
 
 from src.bot.settings import settings
 from src.database import Request
+from src.scheduler.scheduler import Scheduler
 
 from ..keyboards.inline import (
     GameSurveyCallbackData,
@@ -42,7 +43,9 @@ async def process_cancel(
     GameSurveyCallbackData.filter(F.state == SurveyState.IDLE)
 )
 async def start_survey(
-    callback_query: CallbackQuery, callback_data: GameSurveyCallbackData
+    callback_query: CallbackQuery,
+    callback_data: GameSurveyCallbackData,
+    scheduler: Scheduler,
 ) -> None:
     """Start Survey Callback."""
 
@@ -55,9 +58,9 @@ async def start_survey(
     )
 
     game_name = re.findall('"(.*?)"', callback_query.message.caption)[-1]
-    hunter_name = re.findall("@(\w+)", callback_query.message.caption)[-1]
+    hunter_name = re.findall(r"@(\w+)", callback_query.message.caption)[-1]
 
-    await callback_query.bot.send_photo(
+    message = await callback_query.bot.send_photo(
         chat_id=callback_data.user_id,
         photo=BufferedInputFile(file=picture.read(), filename="game.png"),
         caption=f"Оцените игру {game_name} от {hunter_name}",
@@ -65,6 +68,12 @@ async def start_survey(
             text="Оценить",
             callback_data=callback_data,
         ),
+    )
+
+    # Schedule auto delete message
+    bot = await callback_query.bot.get_me()
+    scheduler.add_delete_message(
+        bot=bot, chat_id=callback_data.user_id, message_id=message.message_id
     )
 
 

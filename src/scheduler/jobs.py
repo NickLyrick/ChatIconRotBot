@@ -1,12 +1,13 @@
 """Jobs for scheduler."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
 from aiogram.utils import formatting
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dateutil.relativedelta import relativedelta
 
 from src.bot.settings import settings
 from src.database.connect import Request
@@ -15,11 +16,11 @@ from src.keyboards.inline import GameSurveyCallbackData, build_start_survey_keyb
 from src.utility.tools import table
 
 
-async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
+async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict, scheduler: AsyncIOScheduler):
     """Change chat avatar."""
 
     try:
-        logging.info(f"Changing avatar for chat {chat_id}")
+        logging.info("Changing avatar for chat %i", chat_id)
 
         file_id, hunter_id, game, platform, text = await request.get_avatar(chat_id)
 
@@ -49,9 +50,17 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 caption=text,
                 reply_markup=build_start_survey_keyboard(
                     text="Оценить", callback_data=callback_data
-                ),
+                )
             )
             await bot.pin_chat_message(chat_id=chat_id, message_id=sended_message.message_id)
+
+            # Added delayed delete survey massage from chat
+            date_delete = datetime.now(timezone.utc) + settings.scheduler.auto_delete_message_from_groups - timedelta(hours=1)
+            scheduler.add_job(func=delete_message,
+                              trigger="date",
+                              run_date=date_delete,
+                              kwargs={"bot": bot, "chat_id": chat_id, "message_id": sended_message.message_id},
+                              id=f"{chat_id}_{sended_message.message_id}")
         else:
             await bot.send_message(chat_id=chat_id, text=text)
 
@@ -110,6 +119,18 @@ async def check_db_connection(bot: Bot, request: Request):
     try:
         logging.info("Checking database connection")
         await request.check_db_connection()
+    except Exception as e:
+        for admin_id in settings.bot.admin_ids:
+            await bot.send_message(
+                admin_id, text=f"{__name__}:\n {formatting.Pre(e).as_html()}"
+            )
+
+async def delete_message(bot: Bot, chat_id: int, message_id: int):
+    """Delete message."""
+
+    try:
+        logging.info(f"Deleting message {message_id} in chat {chat_id}")
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
             await bot.send_message(
