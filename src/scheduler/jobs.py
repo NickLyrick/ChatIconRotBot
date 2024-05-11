@@ -1,25 +1,22 @@
 """Jobs for scheduler."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
 from aiogram.utils import formatting
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dateutil.relativedelta import relativedelta
 
 from src.bot.settings import settings
 from src.database.connect import Request
 from src.database.schemas import Scores
 from src.keyboards.inline import GameSurveyCallbackData, build_start_survey_keyboard
 from src.utility.tools import table
-from src.scheduler.scheduler import Scheduler
 
 
-async def change_avatar(bot: Bot,
-                        request: Request,
-                        chat_id: int,
-                        scheduler: Scheduler):
+async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict, scheduler: AsyncIOScheduler):
     """Change chat avatar."""
 
     try:
@@ -57,16 +54,18 @@ async def change_avatar(bot: Bot,
             )
             await bot.pin_chat_message(chat_id=chat_id, message_id=sended_message.message_id)
 
-            # Added delayed delete survey
-            date_delete = datetime.now(timezone.utc) + timedelta(2) - timedelta(hours=1)
-            scheduler.add_delete_message(chat_id=chat_id,
-                                         message_id=sended_message.message_id,
-                                         date=date_delete)
+            # Added delayed delete survey massage from chat
+            date_delete = datetime.now(timezone.utc) + settings.scheduler.auto_delete_message_from_groups - timedelta(hours=1)
+            scheduler.add_job(func=delete_message,
+                              trigger="date",
+                              run_date=date_delete,
+                              kwargs={"bot": bot, "chat_id": chat_id, "message_id": sended_message.message_id},
+                              id=f"{chat_id}_{sended_message.message_id}")
         else:
             await bot.send_message(chat_id=chat_id, text=text)
 
-        t_delta = timedelta(days=scheduler.where_run[chat_id]["delta"])
-        date = scheduler.where_run[chat_id]["date"] + t_delta
+        t_delta = timedelta(days=where_run[chat_id]["delta"])
+        date = where_run[chat_id]["date"] + t_delta
         await request.set_chat_date(chat_id, date)
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
@@ -120,6 +119,18 @@ async def check_db_connection(bot: Bot, request: Request):
     try:
         logging.info("Checking database connection")
         await request.check_db_connection()
+    except Exception as e:
+        for admin_id in settings.bot.admin_ids:
+            await bot.send_message(
+                admin_id, text=f"{__name__}:\n {formatting.Pre(e).as_html()}"
+            )
+
+async def delete_message(bot: Bot, chat_id: int, message_id: int):
+    """Delete message."""
+
+    try:
+        logging.info(f"Deleting message {message_id} in chat {chat_id}")
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
             await bot.send_message(

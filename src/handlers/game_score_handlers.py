@@ -46,7 +46,7 @@ async def process_cancel(
 async def start_survey(
     callback_query: CallbackQuery,
     callback_data: GameSurveyCallbackData,
-    scheduler: Scheduler
+    scheduler: Scheduler,
 ) -> None:
     """Start Survey Callback."""
 
@@ -70,11 +70,19 @@ async def start_survey(
             callback_data=callback_data,
         ),
     )
-    date_delete = datetime.now(timezone.utc) + timedelta(days=2) - timedelta(hours=1)
+
+    # Schedule auto delete message
+    bot = await callback_query.bot.get_me()
+    date_delete = (
+        datetime.now(timezone.utc)
+        + settings.scheduler.auto_delete_message_from_private
+        - timedelta(hours=1)
+    )
     scheduler.add_delete_message(
+        bot=bot,
         chat_id=callback_data.user_id,
         message_id=message.message_id,
-        date=date_delete
+        date=date_delete,
     )
 
 
@@ -150,7 +158,7 @@ async def process_difficulty_score(
 async def process_result(
     callback_query: CallbackQuery,
     callback_data: GameSurveyCallbackData,
-    request: Request
+    request: Request,
 ) -> None:
     """Result Callback."""
 
