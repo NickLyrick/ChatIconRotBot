@@ -6,6 +6,7 @@ from aiogram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from src.bot.settings import settings
 from src.database import Request
 from src.scheduler.jobs import (
     change_avatar,
@@ -92,15 +93,18 @@ class Scheduler:
 
             job.reschedule(trigger="interval", days=delta, start_date=date)
 
-    def add_delete_message(
-        self, bot: Bot, chat_id: int, message_id: int, date: datetime
-    ):
+    def add_delete_message(self, bot: Bot, chat_id: int, message_id: int):
         """Add a job delete message to the scheduler"""
 
+        date_delete = (
+            datetime.now(timezone.utc)
+            + settings.scheduler.auto_delete_message_from_private
+            - timedelta(hours=1)
+        )
         self.scheduler.add_job(
             func=delete_message,
             trigger="date",
-            run_date=date,
+            run_date=date_delete,
             kwargs={"bot": bot, "chat_id": chat_id, "message_id": message_id},
             replace_existing=True,
             id=f"{chat_id}_{message_id}",

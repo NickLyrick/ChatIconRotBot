@@ -1,5 +1,4 @@
 import re
-from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery
@@ -73,16 +72,8 @@ async def start_survey(
 
     # Schedule auto delete message
     bot = await callback_query.bot.get_me()
-    date_delete = (
-        datetime.now(timezone.utc)
-        + settings.scheduler.auto_delete_message_from_private
-        - timedelta(hours=1)
-    )
     scheduler.add_delete_message(
-        bot=bot,
-        chat_id=callback_data.user_id,
-        message_id=message.message_id,
-        date=date_delete,
+        bot=bot, chat_id=callback_data.user_id, message_id=message.message_id
     )
 
 
