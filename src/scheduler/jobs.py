@@ -68,11 +68,11 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
     """Distribution of survey results"""
 
     try:
-        # Get first day of the previous month
+        # Get first day of the previous month 00:00 UTC
         now = datetime.now(timezone.utc)
-        date_start = now.replace(day=1) + relativedelta(months=-1)
+        date_start = now.replace(day=1, hour=0, minute=0, second=0) + relativedelta(months=-1)
         # Get Last day of the previous month
-        date_end = now.replace(day=1) + relativedelta(days=-1)
+        date_end = now.replace(day=1, hour=0, minute=0, second=0)
 
         media = []
         trophy_ids = set()
