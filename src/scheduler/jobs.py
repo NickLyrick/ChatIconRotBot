@@ -68,8 +68,11 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
     """Distribution of survey results"""
 
     try:
+        # Get first day of the previous month
         now = datetime.now(timezone.utc)
-        date = now + relativedelta(months=-1)
+        date_start = now.replace(day=1) + relativedelta(months=-1)
+        # Get Last day of the previous month
+        date_end = now.replace(day=1) + relativedelta(days=-1)
 
         media = []
         trophy_ids = set()
@@ -85,8 +88,8 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
             # [(trophy_id, hunter, game, score)]
             results = await request.get_survey_results(chat_id=chat_id,
                                                     field=score,
-                                                    from_date=date,
-                                                    to_date=now)
+                                                    from_date=date_start,
+                                                    to_date=date_end)
             if len(results) == 0:
                 break
 
@@ -102,7 +105,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
             await bot.send_message(chat_id=chat_id, text="Опрос не проводился или уже завершен.")
         else:
             # Send tables with survey results
-            media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
+            media[0].caption = f"Результаты опроса за {date_start.strftime("%m.%Y")}"
             await bot.send_media_group(chat_id=chat_id, media=media)
             
             # Delete scores for calculated trophy_ids
