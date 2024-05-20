@@ -80,8 +80,6 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
                 text = "Результаты в категории Картинка"
             case Scores.difficulty:
                 text = "Результаты в категории Сложность"
-            case _:
-                pass
 
         # [(trophy_id, hunter, game, score)]
         results = await request.get_survey_results(chat_id=chat_id,
