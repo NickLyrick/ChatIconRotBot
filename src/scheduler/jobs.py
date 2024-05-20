@@ -1,12 +1,12 @@
 """Jobs for scheduler."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
 from aiogram.utils import formatting
+from dateutil.relativedelta import relativedelta
 
 from src.bot.settings import settings
 from src.database.connect import Request
@@ -73,13 +73,15 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
     media = []
     trophy_ids = set()
     for score in (Scores.game, Scores.picture, Scores.difficulty):
-        text = "Результаты в категории "
-        if score is Scores.game:
-            text += "Игра"
-        elif score is Scores.picture:
-            text += "Картинка"
-        elif score is Scores.difficulty:
-            text += "Сложность"
+        match score:
+            case Scores.game:
+                text = "Результаты в категории Игра"
+            case Scores.picture:
+                text = "Результаты в категории Картинка"
+            case Scores.difficulty:
+                text = "Результаты в категории Сложность"
+            case _:
+                pass
 
         # [(trophy_id, hunter, game, score)]
         results = await request.get_survey_results(chat_id=chat_id,
@@ -98,10 +100,13 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
                                          data=[(row[0], row[3]) for row in results])
 
     if len(media) == 0:
-        await bot.send_message(chat_id=chat_id, text="Опрос не проводился")
+        await bot.send_message(chat_id=chat_id, text="Опрос не проводился или уже завершен.")
     else:
+        # Send tables with survey results
         media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
         await bot.send_media_group(chat_id=chat_id, media=media)
+        
+        # Delete scores for calculated trophy_ids
         await request.delete_scores(trophy_ids=trophy_ids)
 
 async def check_db_connection(bot: Bot, request: Request):
