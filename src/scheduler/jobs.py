@@ -67,45 +67,51 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 async def finish_survey(bot: Bot, request: Request, chat_id: int):
     """Distribution of survey results"""
 
-    now = datetime.now(timezone.utc)
-    date = now + relativedelta(months=-1)
+    try:
+        now = datetime.now(timezone.utc)
+        date = now + relativedelta(months=-1)
 
-    media = []
-    trophy_ids = set()
-    for score in (Scores.game, Scores.picture, Scores.difficulty):
-        match score:
-            case Scores.game:
-                text = "Результаты в категории Игра"
-            case Scores.picture:
-                text = "Результаты в категории Картинка"
-            case Scores.difficulty:
-                text = "Результаты в категории Сложность"
+        media = []
+        trophy_ids = set()
+        for score in (Scores.game, Scores.picture, Scores.difficulty):
+            match score:
+                case Scores.game:
+                    text = "Результаты в категории Игра"
+                case Scores.picture:
+                    text = "Результаты в категории Картинка"
+                case Scores.difficulty:
+                    text = "Результаты в категории Сложность"
 
-        # [(trophy_id, hunter, game, score)]
-        results = await request.get_survey_results(chat_id=chat_id,
-                                                   field=score,
-                                                   from_date=date,
-                                                   to_date=now)
-        if len(results) == 0:
-            break
+            # [(trophy_id, hunter, game, score)]
+            results = await request.get_survey_results(chat_id=chat_id,
+                                                    field=score,
+                                                    from_date=date,
+                                                    to_date=now)
+            if len(results) == 0:
+                break
 
-        trophy_ids.update(row[0] for row in results)
+            trophy_ids.update(row[0] for row in results)
 
-        media.extend(table(data=[(row[1], row[2], row[3]) for row in results],
-                           columns=["Hunter", "Game", "Score"],
-                           name=text))
-        await request.add_survey_history(score_type=score.key,
-                                         data=[(row[0], row[3]) for row in results])
+            media.extend(table(data=[(row[1], row[2], row[3]) for row in results],
+                            columns=["Hunter", "Game", "Score"],
+                            name=text))
+            await request.add_survey_history(score_type=score.key,
+                                            data=[(row[0], row[3]) for row in results])
 
-    if len(media) == 0:
-        await bot.send_message(chat_id=chat_id, text="Опрос не проводился или уже завершен.")
-    else:
-        # Send tables with survey results
-        media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
-        await bot.send_media_group(chat_id=chat_id, media=media)
-        
-        # Delete scores for calculated trophy_ids
-        await request.delete_scores(trophy_ids=trophy_ids)
+        if len(media) == 0:
+            await bot.send_message(chat_id=chat_id, text="Опрос не проводился или уже завершен.")
+        else:
+            # Send tables with survey results
+            media[0].caption = f"Результаты опроса за {date.strftime("%m.%Y")}"
+            await bot.send_media_group(chat_id=chat_id, media=media)
+            
+            # Delete scores for calculated trophy_ids
+            await request.delete_scores(trophy_ids=trophy_ids)
+    except Exception as e:
+        for admin_id in settings.bot.admin_ids:
+            await bot.send_message(
+                admin_id, text=f"{__name__}:\n {formatting.Pre(e).as_html()}"
+            )
 
 async def check_db_connection(bot: Bot, request: Request):
     """Check database connection."""
