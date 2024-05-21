@@ -111,7 +111,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
             survey_message = await bot.send_media_group(chat_id=chat_id, media=media)
 
             # Pin Survey Message
-            await bot.pin_chat_message(chat_id=-chat_id, message_id=survey_message[0].message_id)
+            await bot.pin_chat_message(chat_id=chat_id, message_id=survey_message[0].message_id)
             
             # Delete scores for calculated trophy_ids
             await request.delete_scores(trophy_ids=trophy_ids)
