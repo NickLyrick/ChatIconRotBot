@@ -1,13 +1,12 @@
 """This module contains the Scheduler class."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
-from aiogram.utils import formatting
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from src.bot.settings import settings
 from src.database import Request
 from src.scheduler.jobs import change_avatar, check_db_connection, finish_survey
 
@@ -39,34 +38,28 @@ class Scheduler:
         for chat_id in self.where_run:
             try:
                 chat = await bot.get_chat(chat_id=chat_id)
-
                 # Skip private chats
                 if chat.type == "private":
                     continue
-
-                date = self.where_run[chat_id]["date"]
-                delta = self.where_run[chat_id]["delta"]
-                await self.add_change_avatar_job(bot, request, chat_id, date, delta)
-
-                # Check if the last survey is finished
-                await finish_survey(bot=bot, request=request, chat_id=chat_id)
-                # Survey Results each 1st day of the month in 09:00 UTC
-                self.scheduler.add_job(
-                    func=finish_survey,
-                    trigger=CronTrigger.from_crontab("7 22 6 * *"),
-                    id=f"{chat_id}_survey",
-                    args=[bot, request, chat_id],
-                )
             except Exception as e:
-                text = formatting.as_list(
-                    formatting.Text(f"{__name__}:\n"),
-                    formatting.Pre(e),
-                    formatting.Italic(
-                        f"Это значит что бот не запущен в чате {chat_id}"
-                    ),
-                ).as_html()
-                for admin_id in settings.bot.admin_ids:
-                    await bot.send_message(admin_id, text=text)
+                logging.warning(
+                    f"{__name__}: {e} - Trying to get chat {chat_id} where bot is't a member"
+                )
+                continue
+
+            date = self.where_run[chat_id]["date"]
+            delta = self.where_run[chat_id]["delta"]
+            await self.add_change_avatar_job(bot, request, chat_id, date, delta)
+
+            # Check if the last survey is finished
+            await finish_survey(bot=bot, request=request, chat_id=chat_id)
+            # Survey Results each 1st day of the month in 09:00 UTC
+            self.scheduler.add_job(
+                func=finish_survey,
+                trigger=CronTrigger.from_crontab("7 22 6 * *"),
+                id=f"{chat_id}_survey",
+                args=[bot, request, chat_id],
+            )
 
     async def add_change_avatar_job(self, bot, request, chat_id, date, delta):
         """Add a job to the scheduler."""
