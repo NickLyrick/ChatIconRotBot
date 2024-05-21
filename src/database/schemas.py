@@ -2,38 +2,40 @@
 This module contains describes database schemas.
 """
 
-from sqlalchemy import BigInteger, Column, DateTime, Text, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
+from sqlalchemy import BigInteger, Integer, Double, Column, DateTime, Text, func, ForeignKey
+from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
     pass
 
-
 class Chat(Base):
+    """This class is the represente declare table chats"""
     __tablename__ = "chats"
 
     chat_id = Column(BigInteger, primary_key=True)
     date = Column(DateTime(timezone=True))
-    delta: Mapped[int]
+    delta = Column(Integer)
 
 
 class History(Base):
+    """This class is the represente declare table history"""
     __tablename__ = "history"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     chat_id = Column(BigInteger)
     hunter = Column(Text)
     game = Column(Text)
     date = Column(DateTime(timezone=True), server_default=func.now())
     platform = Column(Text, default="Playstation")
     user_id = Column(BigInteger)
+    avatar_date = Column(DateTime(timezone=True))
 
 
 class Platinum(Base):
+    """This class is the represente declare table platinum"""
     __tablename__ = "platinum"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     chat_id = Column(BigInteger)
     hunter = Column(Text)
     game = Column(Text)
@@ -43,11 +45,21 @@ class Platinum(Base):
 
 
 class Scores(Base):
+    """This class is the represente declare table scores"""
     __tablename__ = "scores"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    trophy_id: Mapped[int]
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    trophy_id = Column(BigInteger, ForeignKey(History.id), nullable=False)
     user_id = Column(BigInteger)
-    picture: Mapped[int]
-    game: Mapped[int]
-    difficulty: Mapped[int]
+    picture = Column(Integer)
+    game = Column(Integer)
+    difficulty = Column(Integer)
+
+class Surveys(Base):
+    """This class is the represente declare table surveys"""
+    __tablename__ = "surveys"
+
+    trophy_id = Column(BigInteger,ForeignKey(History.id), nullable=False, primary_key=True)
+    picture = Column(Double)
+    game = Column(Double)
+    difficulty = Column(Double)
