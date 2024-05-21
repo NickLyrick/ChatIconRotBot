@@ -3,16 +3,17 @@ which is responsible for handling all the database queries."""
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Tuple, Optional
 
 from pytz import timezone as tz
-from sqlalchemy import delete, desc, func, select, update
+from sqlalchemy import delete, desc, func, select, update, between, bindparam
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
-from .schemas import Chat, History, Platinum, Scores
+from .schemas import Chat, History, Platinum, Scores, Surveys
 
 
 class Request:
@@ -46,6 +47,7 @@ class Request:
 
     async def get_chats(self) -> dict:
         """This method is used to get all the chats from the database."""
+
         async with self.session() as session:
             statement = select(Chat)
 
@@ -56,6 +58,7 @@ class Request:
 
     async def set_chat_date(self, chat_id, date) -> None:
         """This method is used to set the date of the chat in the database."""
+
         async with self.session() as session:
             statement = select(Chat).where(Chat.chat_id == chat_id)
             chat = (await session.scalars(statement)).one()
@@ -149,6 +152,10 @@ class Request:
                 else:
                     text = "Стандартный аватар не задан. Оставляю всё как есть."
                     file_id = None
+
+                hunter_id = None
+                game = None
+                platform = None
             else:
                 record = records[0]
 
@@ -229,16 +236,17 @@ class Request:
                     platform=record.platform,
                     user_id=record.user_id,
                 )
-                # Query to insert a record into the 'history' table
-                history = History(
-                    chat_id=chat_id,
-                    hunter=record.hunter,
-                    game=record.game,
-                    platform=record.platform,
-                    user_id=record.user_id,
-                )
-
-                session.add_all([platinum, history])
+                session.add(platinum)
+                if record.hunter != "*Default*" and record.game != "*Default*":
+                    # Query to insert a record into the 'history' table
+                    history = History(
+                        chat_id=chat_id,
+                        hunter=record.hunter,
+                        game=record.game,
+                        platform=record.platform,
+                        user_id=record.user_id,
+                    )
+                    session.add(history)
             else:
                 existing_record.photo_id = record.photo_id
 
@@ -359,4 +367,52 @@ class Request:
             )
 
             await session.execute(statement)
+            await session.commit()
+
+    async def get_survey_results(
+        self, chat_id: int, field, from_date: datetime, to_date: datetime
+    ) -> List[Tuple[int, str, str, float]]:
+        """This method is used to get the survey results."""
+
+        async with self.session() as session:
+            score_avg = func.round(func.avg(field), 2)
+            statement = (
+                select(Scores.trophy_id, History.hunter, History.game, score_avg)
+                .join(History, History.id == Scores.trophy_id)
+                .where(History.chat_id == chat_id)
+                .where(between(History.avatar_date, from_date, to_date))
+                .group_by(Scores.trophy_id, History.hunter, History.game)
+                .order_by(desc(score_avg))
+            )
+
+            results_score = await session.execute(statement)
+
+        return results_score.all()
+
+    async def add_survey_history(
+            self, score_type: str, data: List[Tuple[int, float]]
+    ):
+        """This method is used to add results surveys to surveys history"""
+        async with self.session() as session:
+            statement = (
+                insert(Surveys)
+                .values(**{'trophy_id': bindparam("id"), score_type: bindparam('score')})
+                .on_conflict_do_update(index_elements=['trophy_id'],
+                                       set_={score_type: bindparam('score')})
+            )
+
+            await session.execute(statement,
+                                  [{"id": row[0], 'score': row[1]} for row in data])
+            await session.commit()
+
+    async def delete_scores(self, trophy_ids: List[int]):
+        """This method is used to delete scores"""
+
+        async with self.session() as session:
+            statement_delete = (
+                delete(Scores)
+                .where(Scores.trophy_id.in_(trophy_ids))
+            )
+
+            await session.execute(statement_delete)
             await session.commit()

@@ -1,9 +1,9 @@
-aiogram==3.4.1
-APScheduler==3.6.3
+aiogram==3.5.0
+APScheduler==3.10.4
 pytz~=2024.1
 wikipedia~=1.4.0
 pillow~=10.2.0
-weasyprint~=61.0
+weasyprint~=62.0
 typing~=3.7.4.3
 pandas~=2.2.0
 pdf2image~=1.17.0
