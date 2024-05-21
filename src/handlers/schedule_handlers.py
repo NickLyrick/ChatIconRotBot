@@ -33,7 +33,7 @@ async def start(
 
         await message.answer("Да начнётся охота!")
     except Exception as e:
-        await message.answer(text=f"Ошибка: \n" f"{formatting.Pre(e)}.as_html()")
+        await message.answer(text=f"Ошибка: \n" f"{formatting.Pre(e).as_html()}")
 
 
 @schedule_router.message(Command("set_date"), my_filters.check_permissions)
