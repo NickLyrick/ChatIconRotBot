@@ -102,11 +102,16 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
                                             data=[(row[0], row[3]) for row in results])
 
         if len(media) == 0:
-            await bot.send_message(chat_id=chat_id, text="Опрос не проводился или уже завершен.")
+            logging.warning(
+                f"{__name__}: The survey has not been conducted or has already been completed in chat {chat_id}"
+            )
         else:
             # Send tables with survey results
             media[0].caption = f"Результаты опроса за {date_start.strftime("%m.%Y")}"
-            await bot.send_media_group(chat_id=chat_id, media=media)
+            survey_message = await bot.send_media_group(chat_id=-1001346697633, media=media)
+
+            # Pin Survey Message
+            await bot.pin_chat_message(chat_id=-1001346697633, message_id=survey_message[0].message_id)
             
             # Delete scores for calculated trophy_ids
             await request.delete_scores(trophy_ids=trophy_ids)
