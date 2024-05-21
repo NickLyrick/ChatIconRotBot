@@ -108,10 +108,10 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         else:
             # Send tables with survey results
             media[0].caption = f"Результаты опроса за {date_start.strftime("%m.%Y")}"
-            survey_message = await bot.send_media_group(chat_id=-1001346697633, media=media)
+            survey_message = await bot.send_media_group(chat_id=chat_id, media=media)
 
             # Pin Survey Message
-            await bot.pin_chat_message(chat_id=-1001346697633, message_id=survey_message[0].message_id)
+            await bot.pin_chat_message(chat_id=-chat_id, message_id=survey_message[0].message_id)
             
             # Delete scores for calculated trophy_ids
             await request.delete_scores(trophy_ids=trophy_ids)
