@@ -70,7 +70,7 @@ class Scheduler:
             self.scheduler.add_job(
                 func=change_avatar,
                 trigger="interval",
-                days=1,
+                days=delta,
                 start_date=date,
                 id=str(chat_id),
                 args=[bot, request, chat_id, self.where_run],
