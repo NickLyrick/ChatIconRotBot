@@ -7,6 +7,8 @@ import os
 from src.bot.instance import bot
 from src.dispatcher.instance import dispatcher
 
+import alembic.config
+
 if os.name == "nt":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -17,6 +19,12 @@ async def main() -> None:
     # Configure logging
     logging.basicConfig(level=logging.INFO)
     logging.info("Bot started")
+
+    # Run DB migrations
+    alembic.config.main(argv=[
+        '--raiseerr',
+        'upgrade', 'head',
+    ])
 
     await dispatcher.start_polling(bot)
 
