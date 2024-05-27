@@ -3,10 +3,10 @@ which is responsible for handling all the database queries."""
 
 import logging
 from datetime import datetime
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 from pytz import timezone as tz
-from sqlalchemy import delete, desc, func, select, update, between, bindparam
+from sqlalchemy import between, bindparam, delete, desc, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -192,16 +192,25 @@ class Request:
             )
             return (await session.execute(statement)).all()
 
-    async def get_history(self, chat_id, user_id):
+    async def get_history(self, chat_id: int, user_id: int, username: str = None):
         """This method is used to get the history from the database."""
 
         async with self.session() as session:
-            statement = (
-                select(History.game, History.date, History.platform)
-                .where(History.chat_id == chat_id)
-                .where(History.user_id == user_id)
-                .order_by(History.date)
-            )
+            if username is None:
+                statement = (
+                    select(History.game, History.date, History.platform)
+                    .where(History.chat_id == chat_id)
+                    .where(History.user_id == user_id)
+                    .order_by(History.date)
+                )
+            else:
+                statement = (
+                    select(History.game, History.date, History.platform)
+                    .where(History.chat_id == chat_id)
+                    .where(History.hunter == username)
+                    .order_by(History.date)
+                )
+
             data = []
             timezone = tz("Europe/Moscow")
             for record in (await session.execute(statement)).all():
@@ -361,9 +370,7 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                update(History)
-                .where(History.id == history_id)
-                .values(avatar_date=date)
+                update(History).where(History.id == history_id).values(avatar_date=date)
             )
 
             await session.execute(statement)
@@ -389,30 +396,29 @@ class Request:
 
         return results_score.all()
 
-    async def add_survey_history(
-            self, score_type: str, data: List[Tuple[int, float]]
-    ):
+    async def add_survey_history(self, score_type: str, data: List[Tuple[int, float]]):
         """This method is used to add results surveys to surveys history"""
         async with self.session() as session:
             statement = (
                 insert(Surveys)
-                .values(**{'trophy_id': bindparam("id"), score_type: bindparam('score')})
-                .on_conflict_do_update(index_elements=['trophy_id'],
-                                       set_={score_type: bindparam('score')})
+                .values(
+                    **{"trophy_id": bindparam("id"), score_type: bindparam("score")}
+                )
+                .on_conflict_do_update(
+                    index_elements=["trophy_id"], set_={score_type: bindparam("score")}
+                )
             )
 
-            await session.execute(statement,
-                                  [{"id": row[0], 'score': row[1]} for row in data])
+            await session.execute(
+                statement, [{"id": row[0], "score": row[1]} for row in data]
+            )
             await session.commit()
 
     async def delete_scores(self, trophy_ids: List[int]):
         """This method is used to delete scores"""
 
         async with self.session() as session:
-            statement_delete = (
-                delete(Scores)
-                .where(Scores.trophy_id.in_(trophy_ids))
-            )
+            statement_delete = delete(Scores).where(Scores.trophy_id.in_(trophy_ids))
 
             await session.execute(statement_delete)
             await session.commit()
