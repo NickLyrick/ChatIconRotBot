@@ -2,14 +2,26 @@
 This module contains describes database schemas.
 """
 
-from sqlalchemy import BigInteger, Integer, Double, Column, DateTime, Text, func, ForeignKey
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    Double,
+    ForeignKey,
+    Integer,
+    Text,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase
+
 
 class Base(DeclarativeBase):
     pass
 
+
 class Chat(Base):
-    """This class is the represente declare table chats"""
+    """This class is the represent declare table chats"""
+
     __tablename__ = "chats"
 
     chat_id = Column(BigInteger, primary_key=True)
@@ -18,7 +30,8 @@ class Chat(Base):
 
 
 class History(Base):
-    """This class is the represente declare table history"""
+    """This class is the represent declare table history"""
+
     __tablename__ = "history"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -32,7 +45,8 @@ class History(Base):
 
 
 class Platinum(Base):
-    """This class is the represente declare table platinum"""
+    """This class is the represent declare table platinum"""
+
     __tablename__ = "platinum"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -45,7 +59,8 @@ class Platinum(Base):
 
 
 class Scores(Base):
-    """This class is the represente declare table scores"""
+    """This class is the represent declare table scores"""
+
     __tablename__ = "scores"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -55,11 +70,15 @@ class Scores(Base):
     game = Column(Integer)
     difficulty = Column(Integer)
 
+
 class Surveys(Base):
-    """This class is the represente declare table surveys"""
+    """This class is the represent declare table surveys"""
+
     __tablename__ = "surveys"
 
-    trophy_id = Column(BigInteger,ForeignKey(History.id), nullable=False, primary_key=True)
+    trophy_id = Column(
+        BigInteger, ForeignKey(History.id), nullable=False, primary_key=True
+    )
     picture = Column(Double)
     game = Column(Double)
     difficulty = Column(Double)

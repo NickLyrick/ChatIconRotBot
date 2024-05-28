@@ -90,7 +90,11 @@ class Request:
             chat = (await session.scalars(statement_chat)).one()
             default_avatar_record = (await session.scalars(statement_default)).one()
 
-            return [chat.date, chat.delta, default_avatar_record.photo_id]
+            photo_id = None
+            if default_avatar_record is not None:
+                photo_id = default_avatar_record.photo_id
+
+            return [chat.date, chat.delta, photo_id]
 
     async def add_chat_data(self, chat_id, date, delta) -> None:
         """This method is used to add the chat data to the database."""
@@ -100,7 +104,7 @@ class Request:
             chat = (await session.scalars(statement)).one_or_none()
 
             if chat is None:
-                await session.add(Chat(chat_id=chat_id, date=date, delta=delta))
+                session.add(Chat(chat_id=chat_id, date=date, delta=delta))
             else:
                 chat.date = date
                 chat.delta = delta
@@ -201,6 +205,7 @@ class Request:
                     select(History.game, History.date, History.platform)
                     .where(History.chat_id == chat_id)
                     .where(History.user_id == user_id)
+                    .where(History.game != "*Default*")
                     .order_by(History.date)
                 )
             else:
@@ -208,6 +213,7 @@ class Request:
                     select(History.game, History.date, History.platform)
                     .where(History.chat_id == chat_id)
                     .where(History.hunter == username)
+                    .where(History.game != "*Default*")
                     .order_by(History.date)
                 )
 
@@ -221,8 +227,43 @@ class Request:
 
             return data
 
-    async def add_record(self, chat_id, record: PlatinumRecord) -> None:
+    async def set_default_avatar_for_chat(self, chat_id: int, record: PlatinumRecord):
+        """This method is used to add the record with default avatar to the database."""
+
+        async with self.session() as session:
+            statement = (
+                select(Platinum)
+                .where(Platinum.chat_id == chat_id)
+                .where(Platinum.hunter == "*Default*")
+                .where(Platinum.game == "*Default*")
+            )
+
+            existing_record = (await session.scalars(statement)).one_or_none()
+
+            if existing_record is None:
+                # Query to insert a record into the 'platinum' table
+                default_avatar = Platinum(
+                    chat_id=chat_id,
+                    hunter=record.hunter,
+                    game=record.game,
+                    photo_id=record.photo_id,
+                    platform=record.platform,
+                    user_id=None,
+                )
+                session.add(default_avatar)
+            else:
+                existing_record.photo_id = record.photo_id
+
+            # Commit the changes to the database
+            await session.commit()
+
+    async def add_record(self, chat_id: int, record: PlatinumRecord) -> None:
         """This method is used to add the record to the database."""
+
+        # In case of Default avatar
+        if record.hunter == "*Default*" and record.game == "*Default*":
+            await self.set_default_avatar_for_chat(chat_id=chat_id, record=record)
+            return
 
         async with self.session() as session:
             statement = (
@@ -246,16 +287,16 @@ class Request:
                     user_id=record.user_id,
                 )
                 session.add(platinum)
-                if record.hunter != "*Default*" and record.game != "*Default*":
-                    # Query to insert a record into the 'history' table
-                    history = History(
-                        chat_id=chat_id,
-                        hunter=record.hunter,
-                        game=record.game,
-                        platform=record.platform,
-                        user_id=record.user_id,
-                    )
-                    session.add(history)
+
+                # Query to insert a record into the 'history' table
+                history = History(
+                    chat_id=chat_id,
+                    hunter=record.hunter,
+                    game=record.game,
+                    platform=record.platform,
+                    user_id=record.user_id,
+                )
+                session.add(history)
             else:
                 existing_record.photo_id = record.photo_id
 
