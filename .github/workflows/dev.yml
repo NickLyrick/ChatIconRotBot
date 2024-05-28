@@ -15,11 +15,13 @@ jobs:
           with:
             python-version: '3.12'
             cache: 'pip'
+        - name: Install requirements
+          run: |
+            pip install --no-cache-dir -r requirements.txt
         - name: Install linters
           run: |
             pip install --upgrade pip
             pip install pylint
         - name: Check pylint
           run: |
-            ls -la ./
             pylint src
