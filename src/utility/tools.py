@@ -21,7 +21,7 @@ def trim(src):
     return img
 
 
-def table(data, columns, caption: str = None):
+def table(data, columns, caption: str = None, name: str = None):
     """Generate a table from the data."""
 
     # Create DataFrame
@@ -30,6 +30,7 @@ def table(data, columns, caption: str = None):
 
     css_text = (
         "@page { size: 800px 715px; padding: 0px; margin: 0px; }\n"
+        "h4 {text-align: start;}\n"
         "table, td, tr, th { border: 1px solid black; }\n"
         "th { padding: 4px 8px; background-color: lightgray; }\n"
         "td { padding: 4px 8px; }\n"
@@ -44,7 +45,10 @@ def table(data, columns, caption: str = None):
     # Generate CSS styles
     css = wsp.CSS(string=css_text)
     # Generate HTML with CSS
-    html = wsp.HTML(string=df.to_html())
+    html_string = df.to_html()
+    if name is not None:
+        html_string = f"<h4>{name}</h4>\n" + html_string
+    html = wsp.HTML(string=html_string)
     pages = convert_from_bytes(html.write_pdf(stylesheets=[css]), dpi=100)
 
     media = []
@@ -54,17 +58,12 @@ def table(data, columns, caption: str = None):
         trimmed.save(img, "PNG")
         img.seek(0)
 
+        page = types.InputMediaPhoto(
+            type="photo", media=types.BufferedInputFile(img.read(), filename=f"{i}.png")
+        )
         if i == 0:
-            page = types.InputMediaPhoto(
-                type="photo",
-                media=types.BufferedInputFile(img.read(), filename="i.png"),
-                caption=caption,
-            )
-        else:
-            page = types.InputMediaPhoto(
-                type="photo",
-                media=types.BufferedInputFile(img.read(), filename="i.png"),
-            )
+            page.caption = caption
+
         media.append(page)
 
     return media
