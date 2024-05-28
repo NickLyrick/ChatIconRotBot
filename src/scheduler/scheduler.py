@@ -91,3 +91,4 @@ class Scheduler:
                 self.where_run[chat_id]["date"] = date
 
             job.reschedule(trigger="interval", days=delta, start_date=date)
+            job.modify(args=[bot, request, chat_id, self.where_run])
