@@ -3,10 +3,10 @@ which is responsible for handling all the database queries."""
 
 import logging
 from datetime import datetime
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 from pytz import timezone as tz
-from sqlalchemy import delete, desc, func, select, update, between, bindparam
+from sqlalchemy import between, bindparam, delete, desc, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -90,7 +90,11 @@ class Request:
             chat = (await session.scalars(statement_chat)).one()
             default_avatar_record = (await session.scalars(statement_default)).one()
 
-            return [chat.date, chat.delta, default_avatar_record.photo_id]
+            photo_id = None
+            if default_avatar_record is not None:
+                photo_id = default_avatar_record.photo_id
+
+            return [chat.date, chat.delta, photo_id]
 
     async def add_chat_data(self, chat_id, date, delta) -> None:
         """This method is used to add the chat data to the database."""
@@ -100,7 +104,7 @@ class Request:
             chat = (await session.scalars(statement)).one_or_none()
 
             if chat is None:
-                await session.add(Chat(chat_id=chat_id, date=date, delta=delta))
+                session.add(Chat(chat_id=chat_id, date=date, delta=delta))
             else:
                 chat.date = date
                 chat.delta = delta
@@ -192,16 +196,27 @@ class Request:
             )
             return (await session.execute(statement)).all()
 
-    async def get_history(self, chat_id, user_id):
+    async def get_history(self, chat_id: int, user_id: int, username: str = None):
         """This method is used to get the history from the database."""
 
         async with self.session() as session:
-            statement = (
-                select(History.game, History.date, History.platform)
-                .where(History.chat_id == chat_id)
-                .where(History.user_id == user_id)
-                .order_by(History.date)
-            )
+            if username is None:
+                statement = (
+                    select(History.game, History.date, History.platform)
+                    .where(History.chat_id == chat_id)
+                    .where(History.user_id == user_id)
+                    .where(History.game != "*Default*")
+                    .order_by(History.date)
+                )
+            else:
+                statement = (
+                    select(History.game, History.date, History.platform)
+                    .where(History.chat_id == chat_id)
+                    .where(History.hunter == username)
+                    .where(History.game != "*Default*")
+                    .order_by(History.date)
+                )
+
             data = []
             timezone = tz("Europe/Moscow")
             for record in (await session.execute(statement)).all():
@@ -212,8 +227,43 @@ class Request:
 
             return data
 
-    async def add_record(self, chat_id, record: PlatinumRecord) -> None:
+    async def set_default_avatar_for_chat(self, chat_id: int, record: PlatinumRecord):
+        """This method is used to add the record with default avatar to the database."""
+
+        async with self.session() as session:
+            statement = (
+                select(Platinum)
+                .where(Platinum.chat_id == chat_id)
+                .where(Platinum.hunter == "*Default*")
+                .where(Platinum.game == "*Default*")
+            )
+
+            existing_record = (await session.scalars(statement)).one_or_none()
+
+            if existing_record is None:
+                # Query to insert a record into the 'platinum' table
+                default_avatar = Platinum(
+                    chat_id=chat_id,
+                    hunter=record.hunter,
+                    game=record.game,
+                    photo_id=record.photo_id,
+                    platform=record.platform,
+                    user_id=None,
+                )
+                session.add(default_avatar)
+            else:
+                existing_record.photo_id = record.photo_id
+
+            # Commit the changes to the database
+            await session.commit()
+
+    async def add_record(self, chat_id: int, record: PlatinumRecord) -> None:
         """This method is used to add the record to the database."""
+
+        # In case of Default avatar
+        if record.hunter == "*Default*" and record.game == "*Default*":
+            await self.set_default_avatar_for_chat(chat_id=chat_id, record=record)
+            return
 
         async with self.session() as session:
             statement = (
@@ -237,16 +287,16 @@ class Request:
                     user_id=record.user_id,
                 )
                 session.add(platinum)
-                if record.hunter != "*Default*" and record.game != "*Default*":
-                    # Query to insert a record into the 'history' table
-                    history = History(
-                        chat_id=chat_id,
-                        hunter=record.hunter,
-                        game=record.game,
-                        platform=record.platform,
-                        user_id=record.user_id,
-                    )
-                    session.add(history)
+
+                # Query to insert a record into the 'history' table
+                history = History(
+                    chat_id=chat_id,
+                    hunter=record.hunter,
+                    game=record.game,
+                    platform=record.platform,
+                    user_id=record.user_id,
+                )
+                session.add(history)
             else:
                 existing_record.photo_id = record.photo_id
 
@@ -361,9 +411,7 @@ class Request:
 
         async with self.session() as session:
             statement = (
-                update(History)
-                .where(History.id == history_id)
-                .values(avatar_date=date)
+                update(History).where(History.id == history_id).values(avatar_date=date)
             )
 
             await session.execute(statement)
@@ -389,30 +437,29 @@ class Request:
 
         return results_score.all()
 
-    async def add_survey_history(
-            self, score_type: str, data: List[Tuple[int, float]]
-    ):
+    async def add_survey_history(self, score_type: str, data: List[Tuple[int, float]]):
         """This method is used to add results surveys to surveys history"""
         async with self.session() as session:
             statement = (
                 insert(Surveys)
-                .values(**{'trophy_id': bindparam("id"), score_type: bindparam('score')})
-                .on_conflict_do_update(index_elements=['trophy_id'],
-                                       set_={score_type: bindparam('score')})
+                .values(
+                    **{"trophy_id": bindparam("id"), score_type: bindparam("score")}
+                )
+                .on_conflict_do_update(
+                    index_elements=["trophy_id"], set_={score_type: bindparam("score")}
+                )
             )
 
-            await session.execute(statement,
-                                  [{"id": row[0], 'score': row[1]} for row in data])
+            await session.execute(
+                statement, [{"id": row[0], "score": row[1]} for row in data]
+            )
             await session.commit()
 
     async def delete_scores(self, trophy_ids: List[int]):
         """This method is used to delete scores"""
 
         async with self.session() as session:
-            statement_delete = (
-                delete(Scores)
-                .where(Scores.trophy_id.in_(trophy_ids))
-            )
+            statement_delete = delete(Scores).where(Scores.trophy_id.in_(trophy_ids))
 
             await session.execute(statement_delete)
             await session.commit()
