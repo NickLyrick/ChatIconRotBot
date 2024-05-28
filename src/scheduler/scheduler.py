@@ -15,10 +15,10 @@ class Scheduler:
     """Scheduler class."""
 
     def __init__(self, scheduler: AsyncIOScheduler):
-        self.scheduler = scheduler
-        self.where_run = {}
+        self.scheduler: AsyncIOScheduler = scheduler
+        self.where_run: dict = dict()
 
-    async def start(self, bot: Bot, request: Request):
+    async def start(self, bot: Bot, request: Request) -> None:
         """Start the scheduler."""
 
         self.scheduler.start()
@@ -61,7 +61,14 @@ class Scheduler:
                 args=[bot, request, chat_id],
             )
 
-    async def add_change_avatar_job(self, bot, request, chat_id, date, delta):
+    async def add_change_avatar_job(
+        self,
+        bot: Bot,
+        request: Request,
+        chat_id: str,
+        date: datetime = None,
+        delta: int = None,
+    ) -> None:
         """Add a job to the scheduler."""
 
         job = self.scheduler.get_job(str(chat_id))
