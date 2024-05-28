@@ -165,7 +165,7 @@ async def process_result(
     )
 
     await callback_query.message.edit_caption(
-        caption="Оценить заново",
+        caption=text,
         reply_markup=build_start_survey_keyboard(
             text="Изменить оценку", callback_data=callback_data
         ),
