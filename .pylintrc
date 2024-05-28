@@ -3,4 +3,9 @@ init-hook="from pylint.config import find_default_config_files; import os, sys; 
 [SIMILARITIES]
 ignore-imports=y
 [MESSAGES CONTROL]
-disable=W
+disable=
+    W, 
+    too-many-function-args,
+    too-many-public-methods, 
+    too-many-arguments, 
+    too-few-public-methods
