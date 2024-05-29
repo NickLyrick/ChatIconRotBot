@@ -102,7 +102,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         if len(media) == 0:
             logging.warning(
                 (
-                    f"{__name__}: The survey has not been conducted"
+                    f"{__name__}: The survey has not been conducted "
                     f"or has already been completed in chat {chat_id}"
                 )
             )
