@@ -47,6 +47,10 @@ async def set_date(
     chat_id = message.chat.id
     arguments = command.args
 
+    if arguments is None:
+        await message.reply(text="Вы не указали дату")
+        return
+
     date = datetime.strptime(arguments, "%d/%m/%Y %H:%M")
     date = date.replace(tzinfo=pytz.utc)
 
@@ -81,6 +85,11 @@ async def set_delta(
     bot = await bot.get_me()
 
     chat_id = message.chat.id
+
+    if command.args is None:
+        await message.reply(text="Вы не указали временной промежуток")
+        return
+
     delta = int(command.args)
 
     if delta > 0:
