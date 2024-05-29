@@ -8,4 +8,5 @@ disable=
     too-many-function-args,
     too-many-public-methods, 
     too-many-arguments, 
-    too-few-public-methods
+    too-few-public-methods,
+    not-callable
