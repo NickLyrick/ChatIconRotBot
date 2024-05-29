@@ -1,13 +1,14 @@
 """Module with handlers for wiki."""
 
 import wikipedia
-from aiogram import Bot, Router, types
+from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.utils import formatting
 from wikipedia import exceptions as wiki_exceptions
 
-from src.bot.settings import settings
 from src.database import Request
+
+from . import error_handler
 
 wiki_router = Router(name=__name__)
 
@@ -56,13 +57,5 @@ async def games_info(message: types.Message, request: Request):
     await message.reply(**content.as_kwargs())
 
 
-@wiki_router.error()
-async def error_handler(event: types.error_event.ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
-
-    content = formatting.as_list(
-        formatting.Text(f"Ошибка в {__name__}:"),
-        formatting.Pre(event.exception),
-    )
-    for admin_id in settings.bot.admin_ids:
-        await bot.send_message(admin_id, text=content.as_html())
+# Add error handler to the router
+error_handler = wiki_router.error(error_handler)

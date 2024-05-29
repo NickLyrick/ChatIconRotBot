@@ -1,19 +1,18 @@
 """Module providing a basic bot functionality."""
 
-# TODO: Implement user chat commands
 from aiogram import Bot, Router, types
 from aiogram.enums import ChatMemberStatus
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BotCommandScopeAllChatAdministrators,
     BotCommandScopeAllGroupChats,
-    error_event,
 )
-from aiogram.utils import formatting
 
 from src.bot.commands import bot_admin_commands, group_chat_commands
 from src.bot.settings import settings
 from src.filters import my_filters
+
+from . import error_handler
 
 basic_router = Router(name=__name__)
 
@@ -65,13 +64,5 @@ async def help_admin_command(message: types.Message) -> None:
         await message.reply(text=settings.bot.chat_help_message)
 
 
-@basic_router.error()
-async def error_handler(event: error_event.ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
-
-    content = formatting.as_list(
-        formatting.Text(f"Ошибка в {__name__}:"),
-        formatting.Pre(event.exception),
-    )
-    for admin_id in settings.bot.admin_ids:
-        await bot.send_message(admin_id, text=content.as_html())
+# Add error handler to the router
+error_handler = basic_router.error(error_handler)

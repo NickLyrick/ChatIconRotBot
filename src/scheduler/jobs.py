@@ -37,10 +37,6 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
             await request.add_avatar_date(history_id=history_id, date=datetime.now(timezone.utc))
 
-            callback_data = GameSurveyCallbackData(
-                hunter_id=hunter_id, history_id=history_id
-            )
-
             avatar.seek(0)
 
             sended_message = await bot.send_photo(
@@ -48,15 +44,17 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 chat_id=chat_id,
                 caption=text,
                 reply_markup=build_start_survey_keyboard(
-                    text="Оценить", callback_data=callback_data
+                    text="Оценить", 
+                    callback_data=GameSurveyCallbackData(
+                        hunter_id=hunter_id, history_id=history_id
+                    )
                 ),
             )
             await bot.pin_chat_message(chat_id=chat_id, message_id=sended_message.message_id)
         else:
             await bot.send_message(chat_id=chat_id, text=text)
 
-        t_delta = timedelta(days=where_run[chat_id]["delta"])
-        date = where_run[chat_id]["date"] + t_delta
+        date = where_run[chat_id]["date"] + timedelta(days=where_run[chat_id]["delta"])
         await request.set_chat_date(chat_id, date)
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
@@ -103,7 +101,10 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
 
         if len(media) == 0:
             logging.warning(
-                f"{__name__}: The survey has not been conducted or has already been completed in chat {chat_id}"
+                (
+                    f"{__name__}: The survey has not been conducted"
+                    "or has already been completed in chat {chat_id}"
+                )
             )
         else:
             # Send tables with survey results
@@ -112,7 +113,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
 
             # Pin Survey Message
             await bot.pin_chat_message(chat_id=chat_id, message_id=survey_message[0].message_id)
-            
+
             # Delete scores for calculated trophy_ids
             await request.delete_scores(trophy_ids=trophy_ids)
     except Exception as e:

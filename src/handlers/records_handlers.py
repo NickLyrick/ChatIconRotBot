@@ -7,13 +7,13 @@ from aiogram import Bot, F, Router, types
 from aiogram.enums.chat_member_status import ChatMemberStatus
 from aiogram.exceptions import AiogramError
 from aiogram.filters import Command
-from aiogram.types.error_event import ErrorEvent
 from aiogram.utils import formatting
 
-from src.bot.settings import settings
 from src.database import Request
 from src.filters import my_filters
 from src.utility.platinum_record import PlatinumRecord
+
+from . import error_handler
 
 records_router = Router(name=__name__)
 
@@ -35,7 +35,6 @@ async def check_permissions(message: types.Message) -> bool:
         )
 
 
-# TODO: Split on 2 functions. Process Default avatar separately. Use my_filter.check_permissions and remove 17-24
 @records_router.message(F.photo, my_filters.platinum_check)
 async def add_record(message: types.Message, bot: Bot, request: Request) -> None:
     """Add record to the database."""
@@ -94,13 +93,5 @@ async def delete_game(message: types.Message, bot: Bot, request: Request):
     await message.reply(text)
 
 
-@records_router.error()
-async def error_handler(event: ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
-
-    content = formatting.as_list(
-        formatting.Text(f"Ошибка в {__name__}:"),
-        formatting.Pre(event.exception),
-    )
-    for admin_id in settings.bot.admin_ids:
-        await bot.send_message(admin_id, text=content.as_html())
+# Add error handler to the router
+error_handler = records_router.error(error_handler)

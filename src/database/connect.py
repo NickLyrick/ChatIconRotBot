@@ -439,6 +439,7 @@ class Request:
 
     async def add_survey_history(self, score_type: str, data: List[Tuple[int, float]]):
         """This method is used to add results surveys to surveys history"""
+
         async with self.session() as session:
             statement = (
                 insert(Surveys)
