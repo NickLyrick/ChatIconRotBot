@@ -44,7 +44,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
                 chat_id=chat_id,
                 caption=text,
                 reply_markup=build_start_survey_keyboard(
-                    text="Оценить", 
+                    text="Оценить",
                     callback_data=GameSurveyCallbackData(
                         hunter_id=hunter_id, history_id=history_id
                     )

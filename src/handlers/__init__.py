@@ -1,3 +1,5 @@
+"""This module represent handlers library"""
+
 from aiogram import Bot
 from aiogram.types import error_event
 from aiogram.utils import formatting
