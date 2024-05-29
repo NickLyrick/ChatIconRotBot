@@ -2,10 +2,11 @@
 
 import re
 
-from aiogram import F, Router
-from aiogram.types import BufferedInputFile, CallbackQuery
+from aiogram import Bot, F, Router
+from aiogram.types import BufferedInputFile, CallbackQuery, error_event
 from aiogram.utils import formatting
 
+from src.bot.settings import settings
 from src.database import Request
 
 from ..keyboards.inline import (
@@ -16,7 +17,6 @@ from ..keyboards.inline import (
     build_picture_score_keyboard,
     build_start_survey_keyboard,
 )
-from . import error_handler
 
 game_score_router = Router(name=__name__)
 
@@ -173,5 +173,13 @@ async def process_result(
     )
 
 
-# Add error handler to the router
-error_handler = game_score_router.error(error_handler)
+@game_score_router.error()
+async def error_handler(event: error_event.ErrorEvent, bot: Bot) -> None:
+    """Handle errors in game score router."""
+
+    content = formatting.as_list(
+        formatting.Text(f"Ошибка в {__name__}:"),
+        formatting.Pre(event.exception),
+    )
+    for admin_id in settings.bot.admin_ids:
+        await bot.send_message(admin_id, text=content.as_html())
