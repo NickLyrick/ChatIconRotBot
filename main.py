@@ -20,16 +20,16 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     logging.info("Bot started")
 
+    await dispatcher.start_polling(bot)
+
+
+if __name__ == "__main__":
     # Run DB migrations
     alembic.config.main(argv=[
         '--raiseerr',
         'upgrade', 'head',
     ])
 
-    await dispatcher.start_polling(bot)
-
-
-if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
