@@ -7,6 +7,8 @@ import os
 from src.bot.instance import bot
 from src.dispatcher.instance import dispatcher
 
+import alembic.config
+
 if os.name == "nt":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -22,6 +24,12 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    # Run DB migrations
+    alembic.config.main(argv=[
+        '--raiseerr',
+        'upgrade', 'head',
+    ])
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
