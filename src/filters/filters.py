@@ -69,16 +69,17 @@ class CheckPermissions(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         try:
             member = await message.chat.get_member(message.from_user.id)
-            if (
+            is_chat_admin: bool = (
                 member.status == ChatMemberStatus.CREATOR
                 or member.user.id in settings.bot.admin_ids
-            ):
+            )
+            if is_chat_admin:
                 return True
-            else:
-                await message.reply(
-                    text="У вас нет прав для изменения настроек бота для данного чата"
-                )
-                return False
+
+            await message.reply(
+                text="У вас нет прав для изменения настроек бота для данного чата"
+            )
+            return False
         except Exception as e:
             await message.answer(text=f"Ошибка: \n" f"{formatting.Pre(e)}.as_html()")
             return False

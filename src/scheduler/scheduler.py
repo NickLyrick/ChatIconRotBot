@@ -16,7 +16,7 @@ class Scheduler:
 
     def __init__(self, scheduler: AsyncIOScheduler):
         self.scheduler: AsyncIOScheduler = scheduler
-        self.where_run: dict = dict()
+        self.where_run: dict = {}
 
     async def start(self, bot: Bot, request: Request) -> None:
         """Start the scheduler."""
