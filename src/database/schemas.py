@@ -3,15 +3,15 @@ This module contains describes database schemas.
 """
 
 from sqlalchemy import (
-    BigInteger,
-    Integer,
     REAL,
+    BigInteger,
     Column,
     DateTime,
-    Text,
-    func,
     ForeignKey,
     Identity,
+    Integer,
+    Text,
+    func,
 )
 from sqlalchemy.orm import DeclarativeBase
 
@@ -21,7 +21,7 @@ class Base(DeclarativeBase):
 
 
 class Chat(Base):
-    """This class is the represente declare table chats"""
+    """This class is the represent declare table chats"""
 
     __tablename__ = "chats"
     __table_args__ = {
@@ -34,7 +34,7 @@ class Chat(Base):
 
 
 class History(Base):
-    """This class is the represente declare table history"""
+    """This class is the represent declare table history"""
 
     __tablename__ = "history"
 
@@ -62,7 +62,7 @@ class History(Base):
 
 
 class Platinum(Base):
-    """This class is the represente declare table platinum"""
+    """This class is the represent declare table platinum"""
 
     __tablename__ = "platinum"
 
@@ -90,7 +90,7 @@ class Platinum(Base):
 
 
 class Scores(Base):
-    """This class is the represente declare table scores"""
+    """This class is the represent declare table scores"""
 
     __tablename__ = "scores"
 
@@ -116,7 +116,7 @@ class Scores(Base):
 
 
 class Surveys(Base):
-    """This class is the represente declare table surveys"""
+    """This class is the represent declare table surveys"""
 
     __tablename__ = "surveys"
 
