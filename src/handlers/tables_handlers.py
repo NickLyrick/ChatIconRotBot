@@ -5,7 +5,7 @@ from datetime import datetime
 from aiogram import Bot, Router, flags, types
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandObject
-from aiogram.types.error_event import ErrorEvent
+from aiogram.types import error_event
 from aiogram.utils import formatting
 
 from src.bot.settings import settings
@@ -117,8 +117,8 @@ async def get_history(message: types.Message, command: CommandObject, request: R
 
 
 @table_router.error()
-async def error_handler(event: ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
+async def error_handler(event: error_event.ErrorEvent, bot: Bot) -> None:
+    """Handle errors in tables router."""
 
     content = formatting.as_list(
         formatting.Text(f"Ошибка в {__name__}:"),
