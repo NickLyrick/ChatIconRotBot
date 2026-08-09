@@ -88,7 +88,9 @@ class Request:
                 .where(Platinum.game == "*Default*")
             )
             chat = (await session.scalars(statement_chat)).one()
-            default_avatar_record = (await session.scalars(statement_default)).one()
+            default_avatar_record = (
+                await session.scalars(statement_default)
+            ).one_or_none()
 
             photo_id = None
             if default_avatar_record is not None:
