@@ -115,7 +115,10 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
             )
         else:
             # Send tables with survey results
-            media[0].caption = f"Результаты опроса за {date_start.strftime("%m.%Y")}"
+            # aiogram models are frozen, so replace the entry instead of mutating it.
+            media[0] = media[0].model_copy(
+                update={"caption": f"Результаты опроса за {date_start.strftime('%m.%Y')}"}
+            )
             survey_message = await bot.send_media_group(chat_id=chat_id, media=media)
 
             # Pin Survey Message
