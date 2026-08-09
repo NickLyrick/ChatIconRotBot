@@ -15,13 +15,18 @@ jobs:
           with:
             python-version: '3.12'
             cache: 'pip'
+        - name: Install system dependencies
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends \
+              libpango-1.0-0 libpangoft2-1.0-0 poppler-utils
         - name: Install requirements
           run: |
-            pip install -r requirements.txt
-        - name: Install linters
-          run: |
             pip install --upgrade pip
-            pip install pylint
+            pip install -r requirements-dev.txt
         - name: Check pylint
           run: |
             pylint src
+        - name: Run tests
+          run: |
+            pytest
