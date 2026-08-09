@@ -58,12 +58,13 @@ def table(data, columns, caption: str = None, name: str = None):
         trimmed.save(img, "PNG")
         img.seek(0)
 
-        page = types.InputMediaPhoto(
-            type="photo", media=types.BufferedInputFile(img.read(), filename=f"{i}.png")
+        # aiogram models are frozen, so the caption has to be set on creation.
+        media.append(
+            types.InputMediaPhoto(
+                type="photo",
+                media=types.BufferedInputFile(img.read(), filename=f"{i}.png"),
+                caption=caption if i == 0 else None,
+            )
         )
-        if i == 0:
-            page.caption = caption
-
-        media.append(page)
 
     return media

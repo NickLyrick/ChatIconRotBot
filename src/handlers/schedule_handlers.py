@@ -51,7 +51,15 @@ async def set_date(
         await message.reply(text="Вы не указали дату")
         return
 
-    date = datetime.strptime(arguments, "%d/%m/%Y %H:%M")
+    if not arguments:
+        await message.reply("Укажите дату: /set_date ДД/ММ/ГГГГ ЧЧ:ММ")
+        return
+
+    try:
+        date = datetime.strptime(arguments, "%d/%m/%Y %H:%M")
+    except ValueError:
+        await message.reply("Неверный формат даты. Пример: /set_date 31/12/2026 18:00")
+        return
     date = date.replace(tzinfo=pytz.utc)
 
     if date > datetime.now(timezone.utc):
@@ -82,15 +90,12 @@ async def set_delta(
     scheduler: Scheduler,
 ):
     """Set the delta for the chat avatar change."""
-    bot = await bot.get_me()
-
     chat_id = message.chat.id
 
-    if command.args is None:
-        await message.reply(text="Вы не указали временной промежуток")
-        return
-
-    delta = int(command.args)
+    try:
+        delta = int(command.args) if command.args is not None else 0
+    except ValueError:
+        delta = 0
 
     if delta > 0:
         await request.set_chat_delta(chat_id=chat_id, delta=delta)
