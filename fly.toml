@@ -1,34 +1,21 @@
-# fly.toml file generated for platinum on 2022-12-13T14:19:08+05:00
-
 app = "platinum"
+primary_region = "ams"
+
+# main.py catches KeyboardInterrupt, so SIGINT is what triggers the graceful
+# shutdown: closing the bot session, the scheduler and the database pool, and
+# notifying the admins over the network. Five seconds was not enough room.
 kill_signal = "SIGINT"
-kill_timeout = 5
+kill_timeout = "30s"
 
-[env]
-
-[experimental]
-  allowed_public_ports = []
-  auto_rollback = true
-  cmd = []
-  entrypoint = []
-  exec = []
+# No [[services]] or [http_service] on purpose. This is a Telegram long polling
+# bot: it only opens outbound connections and never listens on a port. Declaring
+# a service hands the machine to the fly proxy, which cordons and stops it once
+# no traffic arrives on the declared port — that is what took the bot down.
 
 [processes]
   worker = "python main.py"
 
-[[services]]
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "768mb"
   processes = ["worker"]
-  protocol = "tcp"
-  [services.concurrency]
-    hard_limit = 25
-    soft_limit = 20
-    type = "connections"
-
-  [[services.ports]]
-    force_https = true
-    handlers = ["http"]
-    port = 80
-
-  [[services.ports]]
-    handlers = ["tls", "http"]
-    port = 443
