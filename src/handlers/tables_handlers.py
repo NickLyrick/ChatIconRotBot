@@ -5,7 +5,7 @@ from datetime import datetime
 from aiogram import Bot, Router, flags, types
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandObject
-from aiogram.types.error_event import ErrorEvent
+from aiogram.types import error_event
 from aiogram.utils import formatting
 
 from src.bot.settings import settings
@@ -86,11 +86,11 @@ async def get_history(message: types.Message, command: CommandObject, request: R
     chat_id = message.chat.id
     arguments = command.args
 
-    username = message.from_user.username
+    username = None
     user_id = message.from_user.id
 
     if arguments is not None:
-        username = arguments.replace("@", "")
+        username = arguments.strip().lstrip("@") or None
 
     data = []
     try:
@@ -98,17 +98,19 @@ async def get_history(message: types.Message, command: CommandObject, request: R
             chat_id=chat_id, user_id=user_id, username=username
         )
     except Exception as e:
+        display_name = ("@" + username) if username else "пользователя"
         await message.reply(
-            text=f"Не удалось получить историю от @{username}\n\n"
+            text=f"Не удалось получить историю {display_name}\n\n"
             f"Ошибка: \n"
             f"{formatting.Pre(e).as_html()}"
         )
 
     if len(data) > 0:
+        display_name = ("@" + username) if username else message.from_user.full_name
         media = table(
             data,
             columns=["Game", "Date", "Platform"],
-            caption=f"Список всех трофеев @{username}",
+            caption=f"Список всех трофеев: {display_name}",
         )
         if len(media) > 0:
             await message.reply_media_group(media=media)
@@ -117,8 +119,8 @@ async def get_history(message: types.Message, command: CommandObject, request: R
 
 
 @table_router.error()
-async def error_handler(event: ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
+async def error_handler(event: error_event.ErrorEvent, bot: Bot) -> None:
+    """Handle errors in tables router."""
 
     content = formatting.as_list(
         formatting.Text(f"Ошибка в {__name__}:"),

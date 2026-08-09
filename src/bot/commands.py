@@ -4,8 +4,6 @@
 from aiogram.types import BotCommand
 from aiogram.utils import formatting
 
-# TODO: Implement user_chat_commands
-
 group_chat_commands = [
     BotCommand(command="start", description="Запуск бота в чате"),
     BotCommand(command="help", description="Вывод справочной информации"),
@@ -40,13 +38,13 @@ bot_admin_commands = [
     ),
 ]
 
-chat_help_text = formatting.Bold("У бота есть следующие команды:").as_html() + "\n"
+CHAT_HELP_TEXT = formatting.Bold("У бота есть следующие команды:").as_html() + "\n"
 for command in group_chat_commands:
-    chat_help_text += f"\n/{command.command} - {command.description}"
+    CHAT_HELP_TEXT += f"\n/{command.command} - {command.description}"
 
-admin_help_text = (
+ADMIN_HELP_TEXT = (
     formatting.Bold("Для администраторов бота доступны следующие команды:").as_html()
     + "\n"
 )
 for command in bot_admin_commands:
-    admin_help_text += f"\n/{command.command} - {command.description}"
+    ADMIN_HELP_TEXT += f"\n/{command.command} - {command.description}"

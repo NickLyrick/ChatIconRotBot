@@ -1,8 +1,9 @@
+"""Module providing a handlers for game scoring surveys."""
+
 import re
 
 from aiogram import Bot, F, Router
-from aiogram.types import BufferedInputFile, CallbackQuery
-from aiogram.types.error_event import ErrorEvent
+from aiogram.types import BufferedInputFile, CallbackQuery, error_event
 from aiogram.utils import formatting
 
 from src.bot.settings import settings
@@ -173,8 +174,8 @@ async def process_result(
 
 
 @game_score_router.error()
-async def error_handler(event: ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
+async def error_handler(event: error_event.ErrorEvent, bot: Bot) -> None:
+    """Handle errors in game score router."""
 
     content = formatting.as_list(
         formatting.Text(f"Ошибка в {__name__}:"),

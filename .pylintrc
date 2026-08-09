@@ -1,0 +1,13 @@
+[MAIN]
+init-hook="from pylint.config import find_default_config_files; import os, sys; sys.path.append(os.path.dirname(next(find_default_config_files())))"
+[SIMILARITIES]
+ignore-imports=y
+[MESSAGES CONTROL]
+disable=
+    W, 
+    too-many-function-args,
+    too-many-public-methods, 
+    too-many-arguments, 
+    too-few-public-methods,
+    not-callable,
+    duplicate-code

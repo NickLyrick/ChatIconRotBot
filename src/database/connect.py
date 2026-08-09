@@ -3,17 +3,37 @@ which is responsible for handling all the database queries."""
 
 import logging
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from pytz import timezone as tz
 from sqlalchemy import between, bindparam, delete, desc, func, select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
 from .schemas import Chat, History, Platinum, Scores, Surveys
+
+
+class QueuedAvatar(NamedTuple):
+    """The next avatar to publish, together with its announcement text.
+
+    Every field except ``text`` is None when the queue is empty and the chat
+    falls back to its default avatar.
+    """
+
+    record_id: Optional[int]
+    file_id: Optional[str]
+    hunter_id: Optional[int]
+    game: Optional[str]
+    platform: Optional[str]
+    text: str
 
 
 class Request:
@@ -22,14 +42,26 @@ class Request:
     def __init__(self):
         """Initialize the Request class."""
 
-        self.session: async_sessionmaker[AsyncSession] = None
+        self.engine: Optional[AsyncEngine] = None
+        self.session: Optional[async_sessionmaker[AsyncSession]] = None
 
-    async def create_connection(self):
+    async def create_connection(self) -> None:
         """This function is used to get the connection to the database."""
 
-        engine = create_async_engine(settings.db.database_url)
+        new_engine = create_async_engine(settings.db.database_url, pool_pre_ping=True)
+        old_engine = self.engine
+        self.engine = new_engine
+        self.session = async_sessionmaker(new_engine, expire_on_commit=False)
+        if old_engine is not None:
+            await old_engine.dispose()
 
-        self.session = async_sessionmaker(engine, expire_on_commit=False)
+    async def close(self) -> None:
+        """Close the database connection pool."""
+
+        if self.engine is not None:
+            await self.engine.dispose()
+            self.engine = None
+            self.session = None
 
     async def check_db_connection(self) -> bool:
         """This method is used to check the connection to the database."""
@@ -37,13 +69,20 @@ class Request:
         try:
             async with self.session() as session:
                 await session.execute(select(1))
+            return True
         except Exception as e:
             logging.error(f"Has lost connection to database:\n {e}")
             logging.info("Try reconnect to database")
             try:
                 await self.create_connection()
-            except Exception as e:
-                logging.exception(f"Connect to database failed:\n {e}")
+                async with self.session() as session:
+                    await session.execute(select(1))
+                return True
+            except Exception as reconnect_error:
+                logging.exception(
+                    f"Connect to database failed:\n {reconnect_error}"
+                )
+                return False
 
     async def get_chats(self) -> dict:
         """This method is used to get all the chats from the database."""
@@ -88,7 +127,9 @@ class Request:
                 .where(Platinum.game == "*Default*")
             )
             chat = (await session.scalars(statement_chat)).one()
-            default_avatar_record = (await session.scalars(statement_default)).one()
+            default_avatar_record = (
+                await session.scalars(statement_default)
+            ).one_or_none()
 
             photo_id = None
             if default_avatar_record is not None:
@@ -125,7 +166,7 @@ class Request:
 
             return trophies.all()
 
-    async def get_avatar(self, chat_id) -> tuple[str, int, str, str, str]:
+    async def get_avatar(self, chat_id) -> QueuedAvatar:
         """This method is used to get the avatar file_id from the database."""
 
         async with self.session() as session:
@@ -160,6 +201,7 @@ class Request:
                 hunter_id = None
                 game = None
                 platform = None
+                record_id = None
             else:
                 record = records[0]
 
@@ -173,12 +215,23 @@ class Request:
                 hunter_id = record.user_id
                 game = record.game
                 platform = record.platform
+                record_id = record.id
 
-                await session.delete(record)
+            return QueuedAvatar(
+                record_id=record_id,
+                file_id=file_id,
+                hunter_id=hunter_id,
+                game=game,
+                platform=platform,
+                text=text,
+            )
 
+    async def delete_queue_record(self, record_id: int) -> None:
+        """Delete a queue item after its avatar was changed successfully."""
+
+        async with self.session() as session:
+            await session.execute(delete(Platinum).where(Platinum.id == record_id))
             await session.commit()
-
-            return file_id, hunter_id, game, platform, text
 
     async def get_top(self, chat_id, date: datetime):
         """This method is used to get the top from the database."""
@@ -439,6 +492,7 @@ class Request:
 
     async def add_survey_history(self, score_type: str, data: List[Tuple[int, float]]):
         """This method is used to add results surveys to surveys history"""
+
         async with self.session() as session:
             statement = (
                 insert(Surveys)
