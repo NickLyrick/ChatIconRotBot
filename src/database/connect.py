@@ -8,7 +8,12 @@ from typing import List, Optional, Tuple
 from pytz import timezone as tz
 from sqlalchemy import between, bindparam, delete, desc, func, select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
@@ -22,14 +27,26 @@ class Request:
     def __init__(self):
         """Initialize the Request class."""
 
-        self.session: async_sessionmaker[AsyncSession] = None
+        self.engine: Optional[AsyncEngine] = None
+        self.session: Optional[async_sessionmaker[AsyncSession]] = None
 
-    async def create_connection(self):
+    async def create_connection(self) -> None:
         """This function is used to get the connection to the database."""
 
-        engine = create_async_engine(settings.db.database_url)
+        new_engine = create_async_engine(settings.db.database_url, pool_pre_ping=True)
+        old_engine = self.engine
+        self.engine = new_engine
+        self.session = async_sessionmaker(new_engine, expire_on_commit=False)
+        if old_engine is not None:
+            await old_engine.dispose()
 
-        self.session = async_sessionmaker(engine, expire_on_commit=False)
+    async def close(self) -> None:
+        """Close the database connection pool."""
+
+        if self.engine is not None:
+            await self.engine.dispose()
+            self.engine = None
+            self.session = None
 
     async def check_db_connection(self) -> bool:
         """This method is used to check the connection to the database."""
@@ -37,13 +54,20 @@ class Request:
         try:
             async with self.session() as session:
                 await session.execute(select(1))
+            return True
         except Exception as e:
             logging.error(f"Has lost connection to database:\n {e}")
             logging.info("Try reconnect to database")
             try:
                 await self.create_connection()
-            except Exception as e:
-                logging.exception(f"Connect to database failed:\n {e}")
+                async with self.session() as session:
+                    await session.execute(select(1))
+                return True
+            except Exception as reconnect_error:
+                logging.exception(
+                    f"Connect to database failed:\n {reconnect_error}"
+                )
+                return False
 
     async def get_chats(self) -> dict:
         """This method is used to get all the chats from the database."""

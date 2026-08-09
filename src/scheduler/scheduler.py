@@ -61,6 +61,12 @@ class Scheduler:
                 args=[bot, request, chat_id],
             )
 
+    async def shutdown(self) -> None:
+        """Stop all scheduled jobs."""
+
+        if self.scheduler.running:
+            self.scheduler.shutdown(wait=False)
+
     async def add_change_avatar_job(
         self,
         bot: Bot,
