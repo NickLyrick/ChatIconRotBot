@@ -38,8 +38,8 @@ settings = Settings(
         # TODO: add admin_ids to environment variables
         admin_ids=[392087623],
         welcome_message="Я жажду платин!",
-        chat_help_message=commands.chat_help_text,
-        bot_admin_help_message=commands.admin_help_text,
+        chat_help_message=commands.CHAT_HELP_TEXT,
+        bot_admin_help_message=commands.ADMIN_HELP_TEXT,
     ),
     db=DB(database_url=environ["DATABASE_URL"]),
 )

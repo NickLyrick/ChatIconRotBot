@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytz
 from aiogram import Bot, Router, types
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types.error_event import ErrorEvent
+from aiogram.types import error_event
 from aiogram.utils import formatting
 
 from src.bot.settings import settings
@@ -47,7 +47,19 @@ async def set_date(
     chat_id = message.chat.id
     arguments = command.args
 
-    date = datetime.strptime(arguments, "%d/%m/%Y %H:%M")
+    if arguments is None:
+        await message.reply(text="Вы не указали дату")
+        return
+
+    if not arguments:
+        await message.reply("Укажите дату: /set_date ДД/ММ/ГГГГ ЧЧ:ММ")
+        return
+
+    try:
+        date = datetime.strptime(arguments, "%d/%m/%Y %H:%M")
+    except ValueError:
+        await message.reply("Неверный формат даты. Пример: /set_date 31/12/2026 18:00")
+        return
     date = date.replace(tzinfo=pytz.utc)
 
     if date > datetime.now(timezone.utc):
@@ -78,10 +90,12 @@ async def set_delta(
     scheduler: Scheduler,
 ):
     """Set the delta for the chat avatar change."""
-    bot = await bot.get_me()
-
     chat_id = message.chat.id
-    delta = int(command.args)
+
+    try:
+        delta = int(command.args) if command.args is not None else 0
+    except ValueError:
+        delta = 0
 
     if delta > 0:
         await request.set_chat_delta(chat_id=chat_id, delta=delta)
@@ -136,8 +150,8 @@ async def show_settings(message: types.Message, bot: Bot, request: Request):
 
 
 @schedule_router.error()
-async def error_handler(event: ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
+async def error_handler(event: error_event.ErrorEvent, bot: Bot) -> None:
+    """Handle errors in schedule router."""
 
     content = formatting.as_list(
         formatting.Text(f"Ошибка в {__name__}:"),

@@ -16,6 +16,8 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
+    """This class is the represent declare base class for all tables"""
+
     pass
 
 

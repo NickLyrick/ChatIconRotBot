@@ -3,6 +3,7 @@
 import wikipedia
 from aiogram import Bot, Router, types
 from aiogram.filters import Command
+from aiogram.types import error_event
 from aiogram.utils import formatting
 from wikipedia import exceptions as wiki_exceptions
 
@@ -57,8 +58,8 @@ async def games_info(message: types.Message, request: Request):
 
 
 @wiki_router.error()
-async def error_handler(event: types.error_event.ErrorEvent, bot: Bot) -> None:
-    """Handle errors."""
+async def error_handler(event: error_event.ErrorEvent, bot: Bot) -> None:
+    """Handle errors in wiki router."""
 
     content = formatting.as_list(
         formatting.Text(f"Ошибка в {__name__}:"),

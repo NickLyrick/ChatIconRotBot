@@ -10,13 +10,16 @@ from apscheduler.triggers.cron import CronTrigger
 from src.database import Request
 from src.scheduler.jobs import change_avatar, check_db_connection, finish_survey
 
+# Fallback rotation interval, in days, for a chat whose interval is unknown.
+DEFAULT_DELTA = 1
+
 
 class Scheduler:
     """Scheduler class."""
 
     def __init__(self, scheduler: AsyncIOScheduler):
         self.scheduler: AsyncIOScheduler = scheduler
-        self.where_run: dict = dict()
+        self.where_run: dict = {}
 
     async def start(self, bot: Bot, request: Request) -> None:
         """Start the scheduler."""
@@ -61,6 +64,12 @@ class Scheduler:
                 args=[bot, request, chat_id],
             )
 
+    async def shutdown(self) -> None:
+        """Stop all scheduled jobs."""
+
+        if self.scheduler.running:
+            self.scheduler.shutdown(wait=False)
+
     async def add_change_avatar_job(
         self,
         bot: Bot,
@@ -69,10 +78,24 @@ class Scheduler:
         date: datetime = None,
         delta: int = None,
     ) -> None:
-        """Add a job to the scheduler."""
+        """Add or reschedule the avatar rotation job of a chat.
+
+        Both ``date`` and ``delta`` are optional: /set_date only knows the date
+        and /set_delta only knows the interval. Whatever is missing is taken
+        from the state already stored for the chat, so neither the trigger nor
+        ``where_run`` can ever end up holding None.
+        """
+
+        known = self.where_run.get(chat_id, {})
+
+        if date is None:
+            date = known.get("date") or datetime.now(timezone.utc)
+        if delta is None:
+            delta = known.get("delta") or DEFAULT_DELTA
+
+        self.where_run[chat_id] = {"date": date, "delta": delta}
 
         job = self.scheduler.get_job(str(chat_id))
-
         if job is None:
             self.scheduler.add_job(
                 func=change_avatar,
@@ -83,12 +106,5 @@ class Scheduler:
                 args=[bot, request, chat_id, self.where_run],
             )
         else:
-            if date is None:
-                date = self.where_run[chat_id]["date"]
-                self.where_run[chat_id]["delta"] = delta
-            if delta is None:
-                delta = self.where_run[chat_id]["delta"]
-                self.where_run[chat_id]["date"] = date
-
             job.reschedule(trigger="interval", days=delta, start_date=date)
             job.modify(args=[bot, request, chat_id, self.where_run])

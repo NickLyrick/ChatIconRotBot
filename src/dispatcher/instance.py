@@ -62,6 +62,8 @@ async def register_middlewares(dp: Dispatcher, bot: Bot) -> None:
 
     dp.update.middleware.register(db_middleware)
     dp.update.middleware.register(scheduler_middleware)
+    dp["request"] = request
+    dp["scheduler"] = scheduler
 
 
 @dispatcher.startup()
@@ -74,3 +76,15 @@ async def on_startup(dispatcher: Dispatcher, bot: Bot) -> None:
 
     await register_routers(dp=dispatcher)
     logging.info("Routers registered")
+
+
+@dispatcher.shutdown()
+async def on_shutdown(dispatcher: Dispatcher) -> None:
+    """Release scheduler and database resources."""
+
+    scheduler = dispatcher.get("scheduler")
+    request = dispatcher.get("request")
+    if scheduler is not None:
+        await scheduler.shutdown()
+    if request is not None:
+        await request.close()
