@@ -3,7 +3,7 @@ which is responsible for handling all the database queries."""
 
 import logging
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from pytz import timezone as tz
 from sqlalchemy import between, bindparam, delete, desc, func, select, update
@@ -19,6 +19,21 @@ from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
 
 from .schemas import Chat, History, Platinum, Scores, Surveys
+
+
+class QueuedAvatar(NamedTuple):
+    """The next avatar to publish, together with its announcement text.
+
+    Every field except ``text`` is None when the queue is empty and the chat
+    falls back to its default avatar.
+    """
+
+    record_id: Optional[int]
+    file_id: Optional[str]
+    hunter_id: Optional[int]
+    game: Optional[str]
+    platform: Optional[str]
+    text: str
 
 
 class Request:
@@ -151,7 +166,7 @@ class Request:
 
             return trophies.all()
 
-    async def get_avatar(self, chat_id) -> tuple[str, int, str, str, str]:
+    async def get_avatar(self, chat_id) -> QueuedAvatar:
         """This method is used to get the avatar file_id from the database."""
 
         async with self.session() as session:
@@ -186,6 +201,7 @@ class Request:
                 hunter_id = None
                 game = None
                 platform = None
+                record_id = None
             else:
                 record = records[0]
 
@@ -199,12 +215,23 @@ class Request:
                 hunter_id = record.user_id
                 game = record.game
                 platform = record.platform
+                record_id = record.id
 
-                await session.delete(record)
+            return QueuedAvatar(
+                record_id=record_id,
+                file_id=file_id,
+                hunter_id=hunter_id,
+                game=game,
+                platform=platform,
+                text=text,
+            )
 
+    async def delete_queue_record(self, record_id: int) -> None:
+        """Delete a queue item after its avatar was changed successfully."""
+
+        async with self.session() as session:
+            await session.execute(delete(Platinum).where(Platinum.id == record_id))
             await session.commit()
-
-            return file_id, hunter_id, game, platform, text
 
     async def get_top(self, chat_id, date: datetime):
         """This method is used to get the top from the database."""
