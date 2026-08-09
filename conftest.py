@@ -2,9 +2,10 @@
 
 ``src.bot.settings`` reads its configuration from the environment at import
 time and aiogram validates the token eagerly, so placeholders have to be in
-place before anything under ``src`` is imported. Living at the repository root
-also puts that root on ``sys.path``, which is what makes ``import src`` work
-from the tests.
+place before anything under ``src`` is imported. Being at the repository root,
+this module is loaded before any test module, which is early enough.
+
+The root itself reaches ``sys.path`` through ``pythonpath`` in pytest.ini.
 """
 
 import os
