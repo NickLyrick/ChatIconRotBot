@@ -62,6 +62,7 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
         date = where_run[chat_id]["date"] + timedelta(days=where_run[chat_id]["delta"])
         await request.set_chat_date(chat_id, date)
+        where_run[chat_id]["date"] = date
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
             await bot.send_message(
