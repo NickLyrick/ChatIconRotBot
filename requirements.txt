@@ -2,11 +2,7 @@ aiogram==3.30.0
 APScheduler==3.11.3
 pytz==2026.3.post1
 wikipedia==1.4.0
-pillow==12.3.0
-weasyprint==69.0
-pandas==3.0.5
 python-dateutil==2.9.0.post0
-pdf2image==1.17.0
 pyYAML==6.0.3
 SQLAlchemy==2.0.51
 asyncpg==0.31.0
