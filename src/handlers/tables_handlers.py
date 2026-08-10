@@ -5,18 +5,18 @@ from datetime import datetime
 from aiogram import Bot, Router, flags, types
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandObject
-from aiogram.types import error_event
+from aiogram.types import ReplyParameters, error_event
 from aiogram.utils import formatting
 
 from src.bot.settings import settings
 from src.database import Request
-from src.utility.tools import table
+from src.utility.rich_table import table_message
 
 table_router = Router(name=__name__)
 
 
 @table_router.message(Command("show_queue"))
-@flags.chat_action(action=ChatAction.UPLOAD_PHOTO)
+@flags.chat_action(action=ChatAction.TYPING)
 async def show_queue(message: types.Message, request: Request) -> None:
     """Show the queue of trophies."""
 
@@ -33,17 +33,21 @@ async def show_queue(message: types.Message, request: Request) -> None:
         )
 
     if len(data) > 0:
-        media = table(
-            data, columns=["Nickname", "Game", "Platform"], caption="Очередь трофеев"
+        await message.bot.send_rich_message(
+            chat_id=chat_id,
+            rich_message=table_message(
+                data,
+                columns=["Nickname", "Game", "Platform"],
+                caption="Очередь трофеев",
+            ),
+            reply_parameters=ReplyParameters(message_id=message.message_id),
         )
-        if len(media) > 0:
-            await message.reply_media_group(media=media)
     else:
         await message.reply(text="Список пуст!")
 
 
 @table_router.message(Command("top"))
-@flags.chat_action(action=ChatAction.UPLOAD_PHOTO)
+@flags.chat_action(action=ChatAction.TYPING)
 async def top(message: types.Message, command: CommandObject, request: Request) -> None:
     """Show the top of the chat."""
 
@@ -62,7 +66,6 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
     data = []
     try:
         data = await request.get_top(chat_id=chat_id, date=date)
-        print(data)
     except Exception as e:
         await message.reply(
             text=f"Не удалось получить топ от {date}\n\n"
@@ -71,15 +74,20 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
         )
 
     if len(data) > 0:
-        media = table(data, columns=["Nickname", "Trophies"], caption=caption)
-        if len(media) > 0:
-            await message.reply_media_group(media=media)
+        # Pilot of the native table block; the other commands still send images.
+        await message.bot.send_rich_message(
+            chat_id=chat_id,
+            rich_message=table_message(
+                data, columns=["Nickname", "Trophies"], caption=caption
+            ),
+            reply_parameters=ReplyParameters(message_id=message.message_id),
+        )
     else:
         await message.reply("Список пуст!")
 
 
 @table_router.message(Command("history"))
-@flags.chat_action(action=ChatAction.UPLOAD_PHOTO)
+@flags.chat_action(action=ChatAction.TYPING)
 async def get_history(message: types.Message, command: CommandObject, request: Request):
     """Get the history of the user's trophies."""
 
@@ -107,13 +115,15 @@ async def get_history(message: types.Message, command: CommandObject, request: R
 
     if len(data) > 0:
         display_name = ("@" + username) if username else message.from_user.full_name
-        media = table(
-            data,
-            columns=["Game", "Date", "Platform"],
-            caption=f"Список всех трофеев: {display_name}",
+        await message.bot.send_rich_message(
+            chat_id=chat_id,
+            rich_message=table_message(
+                data,
+                columns=["Game", "Date", "Platform"],
+                caption=f"Список всех трофеев: {display_name}",
+            ),
+            reply_parameters=ReplyParameters(message_id=message.message_id),
         )
-        if len(media) > 0:
-            await message.reply_media_group(media=media)
     else:
         await message.reply("Список пуст!")
 
