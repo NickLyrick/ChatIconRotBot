@@ -1,16 +1,21 @@
-"""Build Telegram rich messages that carry a native table.
+"""Build Telegram rich messages that carry native tables.
 
-The alternative is :func:`src.utility.tools.table`, which renders the same rows
-to a PNG through pandas, WeasyPrint, poppler and Pillow. Telegram has carried
-table blocks since Bot API 10.1, so the rows can be handed over as data and
-rendered by the client instead — selectable, searchable and free of the whole
-image pipeline.
+Telegram has carried table blocks since Bot API 10.1, so the rows are handed
+over as data and drawn by the client. That replaces rendering them to a PNG
+through pandas, WeasyPrint, poppler and Pillow: the result is selectable and
+searchable, and the bot needs no native libraries at all.
 """
 
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from aiogram.types import InputRichBlockTable, InputRichMessage, RichBlockTableCell
+from aiogram.types import (
+    InputRichBlockSectionHeading,
+    InputRichBlockTable,
+    InputRichBlockUnion,
+    InputRichMessage,
+    RichBlockTableCell,
+)
 
 # Numeric columns read better flush right; everything else stays left.
 RIGHT_ALIGNED_COLUMNS = frozenset({"Trophies", "Score"})
@@ -31,12 +36,12 @@ def _cell(value: Any, align: str, is_header: bool = False) -> RichBlockTableCell
     )
 
 
-def table_message(
+def table_block(
     data: Iterable[Sequence[Any]],
     columns: Sequence[str],
     caption: str | None = None,
-) -> InputRichMessage:
-    """Lay the rows out as a rich message holding one table.
+) -> InputRichBlockTable:
+    """Lay the rows out as one table block.
 
     The first column numbers the rows, the way the rendered tables did through
     the DataFrame index.
@@ -55,18 +60,34 @@ def table_message(
     rows = []
     for number, row in enumerate(data, start=1):
         cells = [_cell(number, "right")]
-        cells += [
-            _cell(value, alignment) for value, alignment in zip(row, alignments)
-        ]
+        cells += [_cell(value, alignment) for value, alignment in zip(row, alignments)]
         rows.append(cells)
 
-    return InputRichMessage(
-        blocks=[
-            InputRichBlockTable(
-                cells=[header, *rows],
-                is_bordered=True,
-                is_striped=True,
-                caption=caption,
-            )
-        ]
+    return InputRichBlockTable(
+        cells=[header, *rows],
+        is_bordered=True,
+        is_striped=True,
+        caption=caption,
     )
+
+
+def heading_block(text: str, size: int = 3) -> InputRichBlockSectionHeading:
+    """A section heading, used to title a message holding several tables."""
+
+    return InputRichBlockSectionHeading(text=text, size=size)
+
+
+def rich_message(blocks: Sequence[InputRichBlockUnion]) -> InputRichMessage:
+    """Wrap blocks into a message ready for sendRichMessage."""
+
+    return InputRichMessage(blocks=list(blocks))
+
+
+def table_message(
+    data: Iterable[Sequence[Any]],
+    columns: Sequence[str],
+    caption: str | None = None,
+) -> InputRichMessage:
+    """Shorthand for a message holding a single table."""
+
+    return rich_message([table_block(data, columns, caption)])

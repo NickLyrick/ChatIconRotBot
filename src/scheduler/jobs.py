@@ -12,7 +12,7 @@ from src.bot.settings import settings
 from src.database.connect import Request
 from src.database.schemas import Scores
 from src.keyboards.inline import GameSurveyCallbackData, build_start_survey_keyboard
-from src.utility.tools import table
+from src.utility.rich_table import heading_block, rich_message, table_block
 
 
 async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
@@ -79,7 +79,7 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
         # Get Last day of the previous month
         date_end = now.replace(day=1, hour=0, minute=0, second=0)
 
-        media = []
+        tables = []
         trophy_ids = set()
         for score in (Scores.game, Scores.picture, Scores.difficulty):
             match score:
@@ -100,13 +100,13 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
 
             trophy_ids.update(row[0] for row in results)
 
-            media.extend(table(data=[(row[1], row[2], row[3]) for row in results],
-                            columns=["Hunter", "Game", "Score"],
-                            name=text))
+            tables.append(table_block(data=[(row[1], row[2], row[3]) for row in results],
+                                      columns=["Hunter", "Game", "Score"],
+                                      caption=text))
             await request.add_survey_history(score_type=score.key,
                                             data=[(row[0], row[3]) for row in results])
 
-        if len(media) == 0:
+        if len(tables) == 0:
             logging.warning(
                 (
                     f"{__name__}: The survey has not been conducted "
@@ -114,15 +114,21 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
                 )
             )
         else:
-            # Send tables with survey results
-            # aiogram models are frozen, so replace the entry instead of mutating it.
-            media[0] = media[0].model_copy(
-                update={"caption": f"Результаты опроса за {date_start.strftime('%m.%Y')}"}
+            # One message titled by a heading, with a table per category.
+            survey_message = await bot.send_rich_message(
+                chat_id=chat_id,
+                rich_message=rich_message(
+                    [
+                        heading_block(
+                            f"Результаты опроса за {date_start.strftime('%m.%Y')}"
+                        ),
+                        *tables,
+                    ]
+                ),
             )
-            survey_message = await bot.send_media_group(chat_id=chat_id, media=media)
 
             # Pin Survey Message
-            await bot.pin_chat_message(chat_id=chat_id, message_id=survey_message[0].message_id)
+            await bot.pin_chat_message(chat_id=chat_id, message_id=survey_message.message_id)
 
             # Delete scores for calculated trophy_ids
             await request.delete_scores(trophy_ids=trophy_ids)

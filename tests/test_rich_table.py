@@ -6,7 +6,13 @@ image tables got from the DataFrame index, and the alignment of numeric
 columns.
 """
 
-from src.utility.rich_table import ROW_NUMBER_HEADER, table_message
+from src.utility.rich_table import (
+    ROW_NUMBER_HEADER,
+    heading_block,
+    rich_message,
+    table_block,
+    table_message,
+)
 
 TOP_ROWS = [("nick1", 12), ("nick2", 7)]
 TOP_COLUMNS = ["Nickname", "Trophies"]
@@ -79,6 +85,36 @@ def test_empty_data_still_yields_a_header():
     table = get_table(table_message([], TOP_COLUMNS))
 
     assert len(table.cells) == 1
+
+
+def test_survey_results_fit_one_message():
+    """finish_survey sends a heading followed by one table per category.
+
+    The three categories used to travel as a media group of three images; they
+    now have to reach the chat as a single message so that pinning it pins all
+    of them.
+    """
+
+    categories = ["Игра", "Картинка", "Сложность"]
+    message = rich_message(
+        [
+            heading_block("Результаты опроса за 07.2026"),
+            *(
+                table_block(
+                    [("nick1", "Bloodborne", 9.5)],
+                    columns=["Hunter", "Game", "Score"],
+                    caption=f"Результаты в категории {category}",
+                )
+                for category in categories
+            ),
+        ]
+    )
+
+    assert [block.type for block in message.blocks] == ["heading", "table", "table", "table"]
+    assert message.blocks[0].text == "Результаты опроса за 07.2026"
+    assert [block.caption for block in message.blocks[1:]] == [
+        f"Результаты в категории {category}" for category in categories
+    ]
 
 
 def test_message_is_serialisable_for_the_api():
