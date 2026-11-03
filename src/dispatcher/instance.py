@@ -2,10 +2,8 @@
 
 import logging
 
-import pytz
-from aiogram import Bot, Dispatcher
+from aiogram import Dispatcher
 from aiogram.utils.chat_action import ChatActionMiddleware
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.database import Request
 
@@ -19,72 +17,50 @@ from src.handlers.wiki_handlers import wiki_router
 
 # Middlewares
 from src.middleware.db_middleware import DBSession
-from src.middleware.scheduler_middleware import SchedulerMW
-from src.scheduler.scheduler import Scheduler
 
 dispatcher = Dispatcher()
 
-
-async def register_routers(dp: Dispatcher) -> None:
-    """Register Routers"""
-
-    dp.include_routers(
-        basic_router,
-        game_score_router,
-        table_router,
-        schedule_router,
-        records_router,
-        wiki_router,
-    )
+# Routers are included at import time: the webhook is registered with
+# dispatcher.resolve_used_update_types(), which only sees included routers.
+dispatcher.include_routers(
+    basic_router,
+    game_score_router,
+    table_router,
+    schedule_router,
+    records_router,
+    wiki_router,
+)
 
 
-async def register_middlewares(dp: Dispatcher, bot: Bot) -> None:
+async def register_middlewares(dp: Dispatcher, request: Request) -> None:
     """Register Middlewares"""
 
-    # Create request
-    request = Request()
-    await request.create_connection()
-    logging.info("Connection created")
-
-    # Create scheduler
-    scheduler = Scheduler(AsyncIOScheduler(timezone=pytz.utc))
-    await scheduler.start(bot=bot, request=request)
-    logging.info("Scheduler started")
-
-    # Create middlewares
-    db_middleware = DBSession(request=request)
-    scheduler_middleware = SchedulerMW(scheduler=scheduler)
     chat_action_middleware = ChatActionMiddleware()
 
     dp.message.middleware.register(chat_action_middleware)
     dp.update.middleware.register(chat_action_middleware)
     dp.error.middleware.register(chat_action_middleware)
 
-    dp.update.middleware.register(db_middleware)
-    dp.update.middleware.register(scheduler_middleware)
-    dp["request"] = request
-    dp["scheduler"] = scheduler
+    dp.update.middleware.register(DBSession(request=request))
 
 
 @dispatcher.startup()
-async def on_startup(dispatcher: Dispatcher, bot: Bot) -> None:
-    """On startup"""
+async def on_startup(dispatcher: Dispatcher) -> None:
+    """Open the database pool and wire it into the handlers."""
 
-    # Register middlewares
-    await register_middlewares(dp=dispatcher, bot=bot)
+    request = Request()
+    await request.create_connection()
+    dispatcher["request"] = request
+    logging.info("Connection created")
+
+    await register_middlewares(dp=dispatcher, request=request)
     logging.info("Middlewares registered")
-
-    await register_routers(dp=dispatcher)
-    logging.info("Routers registered")
 
 
 @dispatcher.shutdown()
 async def on_shutdown(dispatcher: Dispatcher) -> None:
-    """Release scheduler and database resources."""
+    """Release database resources."""
 
-    scheduler = dispatcher.get("scheduler")
     request = dispatcher.get("request")
-    if scheduler is not None:
-        await scheduler.shutdown()
     if request is not None:
         await request.close()

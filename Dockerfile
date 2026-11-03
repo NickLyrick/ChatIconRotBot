@@ -14,3 +14,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py alembic.ini ./
 COPY src ./src
+
+EXPOSE 8080
+CMD ["python", "main.py"]
