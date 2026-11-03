@@ -4,8 +4,8 @@ A Telegram bot for communities of trophy hunters. It collects platinum-trophy
 screenshots posted by chat members, rotates them as the group chat avatar on a
 schedule, and runs a monthly rating survey on the games that were shown.
 
-Built with [aiogram 3](https://docs.aiogram.dev/) (async), APScheduler,
-SQLAlchemy 2.0 + PostgreSQL. All bot messages are in Russian.
+Built with [aiogram 3](https://docs.aiogram.dev/) (async, webhook over aiohttp),
+SQLAlchemy 2.0 + PostgreSQL, Alembic. All bot messages are in Russian.
 
 ## How it works
 
@@ -13,7 +13,8 @@ SQLAlchemy 2.0 + PostgreSQL. All bot messages are in Russian.
    (append `Xbox` for the Xbox platform, otherwise PlayStation is assumed).
    The bot stores it in the chat's queue and replies with a random gaming quote
    from [`src/data/quotations.yaml`](src/data/quotations.yaml).
-2. **Rotate the avatar.** Every `delta` days a scheduled job takes the next entry
+2. **Rotate the avatar.** Every `delta` days the scheduled tick (see
+   [Scheduled jobs](#scheduled-jobs)) takes the next entry
    from the queue, sets it as the chat photo, posts and pins an announcement with
    the hunter and the game, then removes the entry from the queue and moves the
    history record forward. If the queue is empty, the chat's default avatar is
@@ -22,9 +23,9 @@ SQLAlchemy 2.0 + PostgreSQL. All bot messages are in Russian.
    button that opens a private survey with the bot. Members score the game on
    three axes from 1 to 10 — *Game*, *Picture*, *Difficulty*. The hunter who
    submitted the trophy only scores *Difficulty*.
-4. **Monthly results.** On the 1st of each month the bot aggregates the previous
-   month's scores, renders one table image per category, sends them as an album
-   and pins it.
+4. **Monthly results.** From 12:00 UTC on the 1st of each month the bot
+   aggregates the previous month's scores, posts one table per category and
+   pins the message — once per chat and month.
 
 ## Commands
 
@@ -67,10 +68,15 @@ The bot is configured entirely through environment variables:
 | --- | --- |
 | `TOKEN` | Telegram Bot API token from [@BotFather](https://t.me/BotFather) |
 | `DATABASE_URL` | Async SQLAlchemy DSN, e.g. `postgresql+asyncpg://user:pass@host:5432/db` |
+| `WEBHOOK_BASE_URL` | Public base URL, e.g. `https://platinum.fly.dev`. Unset → long polling |
+| `WEBHOOK_SECRET` | Secret Telegram sends with every update; required with `WEBHOOK_BASE_URL` |
+| `JOBS_SECRET` | Bearer token the external cron sends to `POST /jobs/tick` |
+| `PORT` | HTTP port of the webhook server, default `8080` |
 
 Bot administrator IDs are currently hardcoded in
 [`src/bot/settings.py`](src/bot/settings.py) (`admin_ids`) — change them there.
-Admins receive startup/shutdown notices and every unhandled error traceback.
+Admins receive a notice on every deploy (on every start in polling mode) and
+every unhandled error traceback.
 
 The bot must be an administrator in the group with permission to change chat
 info and pin messages.
@@ -103,12 +109,13 @@ info and pin messages.
    ```bash
    export TOKEN="123456:ABC-DEF..."
    export DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+   alembic upgrade head
    python main.py
    ```
 
-> **Note:** the database schema is not created automatically. Create the tables
-> described in [`src/database/schemas.py`](src/database/schemas.py) (`chats`,
-> `platinum`, `history`, `scores`, `surveys`) before the first run.
+Without `WEBHOOK_BASE_URL` the bot uses long polling and runs the scheduled
+jobs itself once a minute. Starting it deletes the bot's webhook, so use a
+separate test bot locally, never the production token.
 
 ### Docker
 
@@ -126,8 +133,10 @@ so you can open the project in a container and get a local database for free.
 ## Project layout
 
 ```
-main.py                      entry point: starts long polling
-src/bot/                     bot instance, settings, command descriptions
+main.py                      entry point: webhook server, or long polling locally
+src/release.py               once-per-deploy tasks (Fly release_command)
+src/web/app.py               aiohttp app: /webhook, /jobs/tick, /health
+src/bot/                     bot instance, settings, command descriptions, start announcement
 src/dispatcher/              dispatcher, router and middleware registration
 src/handlers/                message and callback handlers
   basic_handlers.py            /start, /help, global error handler
@@ -138,10 +147,12 @@ src/handlers/                message and callback handlers
   wiki_handlers.py             /games_info
 src/keyboards/inline/        survey keyboards and callback data
 src/filters/                 caption format, chat type and permission filters
-src/middleware/              inject the DB request object and the scheduler
-src/scheduler/               APScheduler wrapper and jobs
-  jobs.py                      change_avatar, finish_survey, check_db_connection
+src/middleware/              inject the DB request object
+src/scheduler/               scheduled jobs
+  runner.py                    decides what is due and claims it in the database
+  jobs.py                      change_avatar, finish_survey
 src/database/                SQLAlchemy models and all queries
+  alembic/                     migration environment and revisions
 src/utility/                 PlatinumRecord model, HTML → PNG table renderer
 src/data/quotations.yaml     random quotes posted on submission
 ```
@@ -154,11 +165,38 @@ with Pillow — see [`src/utility/tools.py`](src/utility/tools.py).
 
 | Table | Purpose |
 | --- | --- |
-| `chats` | Registered chats: next rotation date and interval in days |
+| `chats` | Registered chats: next rotation date, interval in days, last published survey month |
 | `platinum` | Pending queue of submitted trophies (hunter, game, platform, photo) |
 | `history` | Archive of shown trophies, including the date the avatar was set |
 | `scores` | Individual survey votes per trophy and user |
 | `surveys` | Aggregated monthly results per trophy |
+
+## Database migrations
+
+The schema is managed with [Alembic](https://alembic.sqlalchemy.org/). The
+models in [`src/database/schemas.py`](src/database/schemas.py) are the source of
+truth; every schema change ships as a revision in
+[`src/database/alembic/versions/`](src/database/alembic/versions/).
+
+```bash
+export DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
+export TOKEN=123456:dummy   # importing the models builds the Bot; any well-formed token works
+
+alembic upgrade head                              # bring a database up to date
+alembic revision --autogenerate -m "add x to y"   # create a revision, then review it
+alembic check                                     # models and database must match
+```
+
+On Fly, `release_command` in [`fly.toml`](fly.toml) runs
+[`src/release.py`](src/release.py), which applies the migrations once per
+deploy, before the new version starts. CI applies all revisions to an
+empty Postgres 14 and runs `alembic check`.
+
+The first revision (`bbd72dbf4178`, baseline) describes the schema that existed
+before Alembic. Databases created before it are marked once with
+`alembic stamp bbd72dbf4178` instead of being migrated.
+
+See [`src/database/alembic/README`](src/database/alembic/README) for the workflow.
 
 ## Deployment
 
@@ -168,9 +206,41 @@ Deployment targets [Fly.io](https://fly.io) via GitHub Actions:
 - **`stage`** → deploys the `platinum-dev` app ([`.github/workflows/stage.yml`](.github/workflows/stage.yml))
 - **any other branch** → runs `pylint src` only ([`.github/workflows/dev.yml`](.github/workflows/dev.yml))
 
-Deploys require the `FLY_API_TOKEN` repository secret. `TOKEN` and
-`DATABASE_URL` are expected to be set as Fly secrets. A `Procfile` is included
-for Heroku-style platforms.
+Deploys require the `FLY_API_TOKEN` repository secret. `TOKEN`, `DATABASE_URL`,
+`WEBHOOK_BASE_URL`, `WEBHOOK_SECRET` and `JOBS_SECRET` are expected to be set
+as Fly secrets (each app has its own values). A `Procfile` is included for
+Heroku-style platforms.
+
+The app receives updates over a webhook, and the Fly proxy stops the machine
+when it is idle and starts it on the next request. Run a single machine
+(`fly scale count 1`). Each deploy, [`src/release.py`](src/release.py) applies
+the migrations, registers the webhook and publishes the command lists.
+
+## Scheduled jobs
+
+There is no scheduler inside the process: a sleeping machine could not run it.
+An external cron ([cron-job.org](https://cron-job.org)) calls
+
+```
+POST https://<app>.fly.dev/jobs/tick
+Authorization: Bearer <JOBS_SECRET>
+```
+
+once an hour. The request wakes the machine, and
+[`src/scheduler/runner.py`](src/scheduler/runner.py) runs whatever is due
+according to the `chats` table:
+
+- **Avatar rotation** when `chats.date` has passed. The date moves forward by
+  `delta` days (past `now`, if the bot slept through several periods) before the
+  rotation runs.
+- **Survey results** from 12:00 UTC on the 1st, once per month
+  (`chats.survey_period`).
+
+Each job is claimed with a conditional `UPDATE` before it runs, so repeated or
+concurrent ticks never run it twice. As a result a rotation happens at the
+first tick after its time — within an hour with an hourly cron. Do not tick
+more often than every hour or so: the machine would never get idle long
+enough to stop.
 
 ## Development
 

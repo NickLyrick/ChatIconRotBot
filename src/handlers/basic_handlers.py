@@ -3,14 +3,10 @@
 from aiogram import Bot, Router, types
 from aiogram.enums import ChatMemberStatus
 from aiogram.filters import Command, CommandStart
-from aiogram.types import (
-    BotCommandScopeAllChatAdministrators,
-    BotCommandScopeAllGroupChats,
-    error_event,
-)
+from aiogram.types import error_event
 from aiogram.utils import formatting
 
-from src.bot.commands import bot_admin_commands, group_chat_commands
+from src.bot.announce import announce_start
 from src.bot.settings import settings
 from src.filters import my_filters
 
@@ -19,21 +15,22 @@ basic_router = Router(name=__name__)
 
 @basic_router.startup()
 async def bot_started(bot: Bot) -> None:
-    """Send message to all admins when bot is started."""
+    """Announce the start in polling mode.
 
-    await bot.set_my_commands(group_chat_commands, BotCommandScopeAllGroupChats())
+    A webhook bot starts on every wake-up; it announces once per deploy from
+    src/release.py instead.
+    """
 
-    for admin_id in settings.bot.admin_ids:
-        await bot.set_my_commands(
-            group_chat_commands + bot_admin_commands,
-            BotCommandScopeAllChatAdministrators(admin_id=admin_id),
-        )
-        await bot.send_message(admin_id, text="Бот запущен!")
+    if not settings.webhook.enabled:
+        await announce_start(bot)
 
 
 @basic_router.shutdown()
 async def bot_stopped(bot: Bot) -> None:
-    """Send message to all admins when bot is stopped."""
+    """Tell the admins the bot stopped (polling mode only, see bot_started)."""
+
+    if settings.webhook.enabled:
+        return
 
     for admin_id in settings.bot.admin_ids:
         await bot.send_message(admin_id, text="Бот остановлен!")
