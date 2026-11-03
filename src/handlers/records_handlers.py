@@ -1,5 +1,6 @@
 """This module contains handlers for adding and deleting records in the database."""
 
+import logging
 import random
 
 import yaml
@@ -17,8 +18,26 @@ from src.utility.platinum_record import PlatinumRecord
 
 records_router = Router(name=__name__)
 
-with open("src/data/quotations.yaml", "r", encoding="utf8") as file:
-    quotations = yaml.safe_load(file)["quotations"]
+QUOTATION_KEYS = ("quotation", "author", "game")
+
+
+def load_quotations(path: str = "src/data/quotations.yaml") -> list[dict]:
+    """Load the quotations, skipping entries that miss a field."""
+
+    with open(path, "r", encoding="utf8") as file:
+        items = yaml.safe_load(file)["quotations"]
+
+    valid = []
+    for item in items:
+        if isinstance(item, dict) and all(item.get(key) for key in QUOTATION_KEYS):
+            valid.append(item)
+        else:
+            logging.warning(f"Skipping malformed quotation: {item!r}")
+
+    return valid
+
+
+quotations = load_quotations()
 
 
 async def check_permissions(message: types.Message) -> bool:
@@ -57,23 +76,25 @@ async def add_record(message: types.Message, bot: Bot, request: Request) -> None
 
     file_id = message.photo[-1].file_id
 
-    quotation = random.choice(quotations)
-
-    text = formatting.as_list(
-        formatting.Text(formatting.Italic(f" \"{quotation['quotation']}\" ©", "\n")),
-        formatting.Text(f"{quotation['author']}", "\n", f"{quotation['game']}"),
-    ).as_html()
-
-    if game == "*Default*":
-        if await check_permissions(message):
-            username = "*Default*"
-            text = "Стандартный аватар установлен"
-        else:
+    is_default = game == "*Default*"
+    if is_default:
+        if not await check_permissions(message):
             return
+        username = "*Default*"
 
+    # Save first, so a problem with the reply can't lose the trophy.
     if username is not None:
         record = PlatinumRecord(username, game, file_id, platform, user_id)
         await request.add_record(chat_id=chat_id, record=record)
+
+    if is_default:
+        text = "Стандартный аватар установлен"
+    else:
+        quotation = random.choice(quotations)
+        text = formatting.as_list(
+            formatting.Text(formatting.Italic(f" \"{quotation['quotation']}\" ©", "\n")),
+            formatting.Text(f"{quotation['author']}", "\n", f"{quotation['game']}"),
+        ).as_html()
 
     await message.reply(text)
 

@@ -412,8 +412,8 @@ quotations:
     game: "Sherlock Holmes: Crimes and Punishments"
 
   - quotation: "I am the very model of a scientist Salarian."
-  - author: Mordin Solus
-  - game: Mass Effect 2
+    author: Mordin Solus
+    game: Mass Effect 2
 
   - quotation: "In the end, it was not the weapons that saved us. It was Shepard."
     author: Admiral Hackett
