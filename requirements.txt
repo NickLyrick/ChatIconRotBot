@@ -1,5 +1,5 @@
 aiogram==3.30.0
-APScheduler==3.11.3
+alembic==1.20.1
 pytz==2026.3.post1
 wikipedia==1.4.0
 python-dateutil==2.9.0.post0

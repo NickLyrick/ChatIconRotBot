@@ -11,24 +11,18 @@ from aiogram.utils import formatting
 from src.bot.settings import settings
 from src.database import Request
 from src.filters import my_filters
-from src.scheduler.scheduler import Scheduler
 
 schedule_router = Router(name=__name__)
 
 
 @schedule_router.message(CommandStart(), my_filters.from_group_or_supergroup)
-async def start(
-    message: types.Message, bot: Bot, request: Request, scheduler: Scheduler
-) -> None:
-    """Start the scheduler for the chat."""
+async def start(message: types.Message, request: Request) -> None:
+    """Register the chat; its first rotation runs on the next scheduled tick."""
 
     chat_id = message.chat.id
-    if chat_id not in scheduler.where_run:
-        date = datetime.now(timezone.utc)
-        await request.add_chat_data(chat_id=chat_id, date=date, delta=1)
-
-        await scheduler.add_change_avatar_job(
-            bot=bot, request=request, chat_id=chat_id, date=date, delta=1
+    if not await request.chat_exists(chat_id):
+        await request.add_chat_data(
+            chat_id=chat_id, date=datetime.now(timezone.utc), delta=1
         )
 
     await message.answer("Да начнётся охота!")
@@ -38,9 +32,7 @@ async def start(
 async def set_date(
     message: types.Message,
     command: CommandObject,
-    bot: Bot,
     request: Request,
-    scheduler: Scheduler,
 ) -> None:
     """Set the date for the chat avatar change."""
 
@@ -64,14 +56,11 @@ async def set_date(
 
     if date > datetime.now(timezone.utc):
         await request.set_chat_date(chat_id, date)
-        await scheduler.add_change_avatar_job(
-            bot=bot, request=request, chat_id=chat_id, date=date
-        )
 
-        date.strftime("%d.%m.%Y %H:%M")
         text = (
             f"Ближайшая дата смены фото чата успешно установлена на: "
             f" {date.astimezone(tz=pytz.timezone('Europe/Moscow')).strftime('%d.%m.%Y %H:%M')}"
+            "\nФото сменится в ближайшую проверку расписания после этого времени."
         )
     else:
         text = (
@@ -85,9 +74,7 @@ async def set_date(
 async def set_delta(
     message: types.Message,
     command: CommandObject,
-    bot: Bot,
     request: Request,
-    scheduler: Scheduler,
 ):
     """Set the delta for the chat avatar change."""
     chat_id = message.chat.id
@@ -99,9 +86,6 @@ async def set_delta(
 
     if delta > 0:
         await request.set_chat_delta(chat_id=chat_id, delta=delta)
-        await scheduler.add_change_avatar_job(
-            bot=bot, request=request, chat_id=chat_id, date=None, delta=delta
-        )
         text = f"Промежуток между сменами фото чата успешно установлен на {delta}д."
     else:
         text = "Промежуток между сменами фото должен быть больше нуля и целым числом"

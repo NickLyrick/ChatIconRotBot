@@ -25,3 +25,41 @@ jobs:
         - name: Run tests
           run: |
             pytest
+
+  migrations:
+      name: Check migrations
+      runs-on: ubuntu-latest
+      services:
+        postgres:
+          # Same major version as platinum-db on Fly.
+          image: postgres:14
+          env:
+            POSTGRES_PASSWORD: postgres
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 5s
+            --health-timeout 5s
+            --health-retries 10
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
+        # Importing the models builds the Bot, which only checks the token format.
+        TOKEN: "123456:ci-dummy-token"
+      steps:
+        - uses: actions/checkout@v4
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: '3.12'
+            cache: 'pip'
+        - name: Install requirements
+          run: |
+            pip install --upgrade pip
+            pip install -r requirements.txt
+        - name: Upgrade, check models, round-trip
+          run: |
+            alembic upgrade head
+            alembic check
+            alembic downgrade base
+            alembic upgrade head

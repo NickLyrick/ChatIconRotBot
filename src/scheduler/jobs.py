@@ -1,7 +1,7 @@
 """Jobs for scheduler."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
@@ -15,8 +15,12 @@ from src.keyboards.inline import GameSurveyCallbackData, build_start_survey_keyb
 from src.utility.rich_table import heading_block, rich_message, table_block
 
 
-async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dict):
-    """Change chat avatar."""
+async def change_avatar(bot: Bot, request: Request, chat_id: int):
+    """Change chat avatar.
+
+    The next rotation date is not touched here: the runner has already moved
+    it forward when it claimed this rotation.
+    """
 
     try:
         logging.info(f"Changing avatar for chat {chat_id}")
@@ -59,10 +63,6 @@ async def change_avatar(bot: Bot, request: Request, chat_id: int, where_run: dic
 
         if queued.record_id is not None:
             await request.delete_queue_record(queued.record_id)
-
-        date = where_run[chat_id]["date"] + timedelta(days=where_run[chat_id]["delta"])
-        await request.set_chat_date(chat_id, date)
-        where_run[chat_id]["date"] = date
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
             await bot.send_message(
@@ -132,18 +132,6 @@ async def finish_survey(bot: Bot, request: Request, chat_id: int):
 
             # Delete scores for calculated trophy_ids
             await request.delete_scores(trophy_ids=trophy_ids)
-    except Exception as e:
-        for admin_id in settings.bot.admin_ids:
-            await bot.send_message(
-                admin_id, text=f"{__name__}:\n {formatting.Pre(e).as_html()}"
-            )
-
-async def check_db_connection(bot: Bot, request: Request):
-    """Check database connection."""
-
-    try:
-        logging.info("Checking database connection")
-        await request.check_db_connection()
     except Exception as e:
         for admin_id in settings.bot.admin_ids:
             await bot.send_message(

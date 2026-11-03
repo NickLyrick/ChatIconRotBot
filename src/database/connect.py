@@ -2,7 +2,7 @@
 which is responsible for handling all the database queries."""
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, NamedTuple, Optional, Tuple
 
 from pytz import timezone as tz
@@ -84,16 +84,60 @@ class Request:
                 )
                 return False
 
-    async def get_chats(self) -> dict:
-        """This method is used to get all the chats from the database."""
+    async def get_chats(self) -> List[Chat]:
+        """Return every registered chat with its rotation and survey state."""
 
         async with self.session() as session:
-            statement = select(Chat)
+            return list((await session.scalars(select(Chat))).all())
 
-            return {
-                chat.chat_id: {"date": chat.date, "delta": chat.delta}
-                for chat in (await session.scalars(statement)).all()
-            }
+    async def chat_exists(self, chat_id: int) -> bool:
+        """Whether the chat has been registered with /start."""
+
+        async with self.session() as session:
+            statement = select(Chat.chat_id).where(Chat.chat_id == chat_id)
+            return (await session.scalar(statement)) is not None
+
+    async def claim_rotation(
+        self, chat_id: int, old_date: datetime, new_date: datetime
+    ) -> bool:
+        """Move the chat's next rotation from ``old_date`` to ``new_date``.
+
+        The update only applies while the stored date is still ``old_date``, so
+        of several concurrent ticks exactly one wins the rotation.
+        """
+
+        async with self.session() as session:
+            statement = (
+                update(Chat)
+                .where(Chat.chat_id == chat_id)
+                .where(Chat.date == old_date)
+                .values(date=new_date)
+                .returning(Chat.chat_id)
+            )
+            claimed = (await session.execute(statement)).scalar_one_or_none()
+            await session.commit()
+
+        return claimed is not None
+
+    async def claim_survey(self, chat_id: int, period: date) -> bool:
+        """Mark the survey of ``period`` as published for the chat.
+
+        Returns False when that period was already claimed, by this or by a
+        concurrent tick.
+        """
+
+        async with self.session() as session:
+            statement = (
+                update(Chat)
+                .where(Chat.chat_id == chat_id)
+                .where(Chat.survey_period.is_distinct_from(period))
+                .values(survey_period=period)
+                .returning(Chat.chat_id)
+            )
+            claimed = (await session.execute(statement)).scalar_one_or_none()
+            await session.commit()
+
+        return claimed is not None
 
     async def set_chat_date(self, chat_id, date) -> None:
         """This method is used to set the date of the chat in the database."""
