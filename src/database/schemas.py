@@ -9,6 +9,7 @@ from sqlalchemy import (
     REAL,
     BigInteger,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Identity,
@@ -43,6 +44,8 @@ class Chat(Base):
     chat_id = Column(BigInteger, primary_key=True, autoincrement=False)
     date = Column(DateTime(timezone=True), nullable=False)
     delta = Column(Integer, nullable=False)
+    # First day of the month whose survey results were last published.
+    survey_period = Column(Date)
 
 
 class History(Base):
