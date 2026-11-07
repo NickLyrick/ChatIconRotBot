@@ -5,7 +5,7 @@ screenshots posted by chat members, rotates them as the group chat avatar on a
 schedule, and runs a monthly rating survey on the games that were shown.
 
 Built with [aiogram 3](https://docs.aiogram.dev/) (async, webhook over aiohttp),
-SQLAlchemy 2.0 + PostgreSQL, Alembic. All bot messages are in Russian.
+SQLAlchemy 2 + PostgreSQL, Alembic. All bot messages are in Russian.
 
 ## How it works
 
@@ -24,8 +24,8 @@ SQLAlchemy 2.0 + PostgreSQL, Alembic. All bot messages are in Russian.
    three axes from 1 to 10 — *Game*, *Picture*, *Difficulty*. The hunter who
    submitted the trophy only scores *Difficulty*.
 4. **Monthly results.** From 12:00 UTC on the 1st of each month the bot
-   aggregates the previous month's scores, posts one table per category and
-   pins the message — once per chat and month.
+   aggregates the previous month's scores, posts one message with a table per
+   category and pins it — once per chat and month.
 
 ## Commands
 
@@ -35,7 +35,7 @@ SQLAlchemy 2.0 + PostgreSQL, Alembic. All bot messages are in Russian.
 | --- | --- |
 | `/start` | Start the bot in the chat (registers the chat and its schedule) |
 | `/help` | Show the command reference |
-| `/show_queue` | Show the queue of pending trophies as a table image |
+| `/show_queue` | Show the queue of pending trophies as a table |
 | `/delete_game` | Delete your most recently submitted trophy |
 | `/history [@username]` | List all trophies of yourself or another user |
 | `/top [dd.mm.yyyy]` | Trophy leaderboard, all-time or since the given date |
@@ -65,8 +65,8 @@ queue runs dry.
 
 - Python 3.14
 - PostgreSQL
-- System packages for table rendering: `poppler-utils`, `pango`, and a font with
-  Cyrillic coverage (the Docker image installs `font-noto`)
+
+No system packages are needed: tables are sent as native Telegram tables.
 
 ## Configuration
 
@@ -106,13 +106,7 @@ info and pin messages.
    pip install -r requirements.txt
    ```
 
-3. Install the native dependencies (Debian/Ubuntu):
-
-   ```bash
-   sudo apt-get install poppler-utils libpango-1.0-0 fonts-noto
-   ```
-
-4. Provide the environment variables and run:
+3. Provide the environment variables and run:
 
    ```bash
    export TOKEN="123456:ABC-DEF..."
@@ -147,13 +141,14 @@ src/web/app.py               aiohttp app: /webhook, /jobs/tick, /health
 src/bot/                     bot instance, settings, command descriptions, start announcement
 src/dispatcher/              dispatcher, router and middleware registration
 src/handlers/                message and callback handlers
-  basic_handlers.py            /start, /help, global error handler
+  basic_handlers.py            /start in private chats, /help, global error handler
   records_handlers.py          trophy submission and deletion
-  schedule_handlers.py         /set_date, /set_delta, /show_settings
+  schedule_handlers.py         /start in groups, /set_date, /set_delta, /set_timezone, /show_settings
+  settings_menu_handlers.py    /settings button menu
   tables_handlers.py           /show_queue, /top, /history
   game_score_handlers.py       inline survey flow
   wiki_handlers.py             /games_info
-src/keyboards/inline/        survey keyboards and callback data
+src/keyboards/inline/        survey and settings menu keyboards, callback data
 src/filters/                 caption format, chat type and permission filters
 src/middleware/              inject the DB request object
 src/scheduler/               scheduled jobs
@@ -161,19 +156,20 @@ src/scheduler/               scheduled jobs
   jobs.py                      change_avatar, finish_survey
 src/database/                SQLAlchemy models and all queries
   alembic/                     migration environment and revisions
-src/utility/                 PlatinumRecord model, HTML → PNG table renderer
+src/utility/                 PlatinumRecord model, table messages, schedule and time zone helpers
 src/data/quotations.yaml     random quotes posted on submission
+tests/                       pytest suite
 ```
 
-Table images are produced by rendering a pandas DataFrame to HTML, converting it
-to PDF with WeasyPrint, rasterising it with pdf2image, and trimming the result
-with Pillow — see [`src/utility/tools.py`](src/utility/tools.py).
+Tables (`/show_queue`, `/top`, `/history`, survey results) are sent as rich
+messages with native table blocks (Bot API 10.1), so Telegram draws them and
+the text stays selectable — see [`src/utility/rich_table.py`](src/utility/rich_table.py).
 
 ## Database schema
 
 | Table | Purpose |
 | --- | --- |
-| `chats` | Registered chats: next rotation date, interval in days, last published survey month |
+| `chats` | Registered chats: next rotation date, interval in days, time zone, last published survey month |
 | `platinum` | Pending queue of submitted trophies (hunter, game, platform, photo) |
 | `history` | Archive of shown trophies, including the date the avatar was set |
 | `scores` | Individual survey votes per trophy and user |
@@ -224,8 +220,8 @@ Deploys require the `FLY_API_TOKEN` repository secret. `TOKEN`, `DATABASE_URL`,
 as Fly secrets (each app has its own values). A `Procfile` is included for
 Heroku-style platforms.
 
-The app receives updates over a webhook, and the Fly proxy stops the machine
-when it is idle and starts it on the next request. Run a single machine
+The app receives updates over a webhook, and the Fly proxy suspends the machine
+when it is idle and wakes it on the next request. Run a single machine
 (`fly scale count 1`). Each deploy, [`src/release.py`](src/release.py) applies
 the migrations, registers the webhook and publishes the command lists.
 
@@ -257,11 +253,14 @@ enough to stop.
 
 ## Development
 
-Lint the codebase the same way CI does:
+Install the development tools (pinned to the versions CI uses) and run the same
+checks as CI:
 
 ```bash
-pip install pylint
-pylint src
+pip install -r requirements-dev.txt
+pylint src           # rules live in .pylintrc
+pytest --cov         # tests with coverage; settings in pytest.ini and .coveragerc
 ```
 
-Rules live in [`.pylintrc`](.pylintrc).
+The tests need no database or Telegram access: [`conftest.py`](conftest.py)
+sets placeholder `TOKEN` and `DATABASE_URL` values.
