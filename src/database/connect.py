@@ -5,7 +5,6 @@ import logging
 from datetime import date, datetime
 from typing import List, NamedTuple, Optional, Tuple
 
-from pytz import timezone as tz
 from sqlalchemy import between, bindparam, delete, desc, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import (
@@ -17,6 +16,7 @@ from sqlalchemy.ext.asyncio import (
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
+from src.utility.schedule import DEFAULT_TIMEZONE, get_zone
 
 from .schemas import Chat, History, Platinum, Scores, Surveys
 
@@ -34,6 +34,15 @@ class QueuedAvatar(NamedTuple):
     game: Optional[str]
     platform: Optional[str]
     text: str
+
+
+class ChatSettings(NamedTuple):
+    """A chat's rotation schedule and default avatar."""
+
+    date: datetime  # next rotation, UTC
+    delta: int  # days between rotations
+    timezone: str  # IANA zone admins enter and read dates in
+    default_photo_id: Optional[str]
 
 
 class Request:
@@ -157,8 +166,20 @@ class Request:
 
         return await self._update_chat(chat_id, delta=delta)
 
-    async def get_chat_settings(self, chat_id) -> Optional[list]:
-        """Return [date, delta, default photo_id], or None for an unknown chat."""
+    async def set_chat_timezone(self, chat_id: int, zone: str) -> bool:
+        """Set the chat's IANA time zone; False when the chat is not registered."""
+
+        return await self._update_chat(chat_id, timezone=zone)
+
+    async def get_chat_timezone(self, chat_id: int) -> str:
+        """The chat's IANA time zone; the default zone for an unknown chat."""
+
+        async with self.session() as session:
+            statement = select(Chat.timezone).where(Chat.chat_id == chat_id)
+            return (await session.scalar(statement)) or DEFAULT_TIMEZONE
+
+    async def get_chat_settings(self, chat_id) -> Optional[ChatSettings]:
+        """The chat's schedule and default avatar, or None for an unknown chat."""
 
         async with self.session() as session:
             statement_chat = select(Chat).where(Chat.chat_id == chat_id)
@@ -179,7 +200,12 @@ class Request:
             if default_avatar_record is not None:
                 photo_id = default_avatar_record.photo_id
 
-            return [chat.date, chat.delta, photo_id]
+            return ChatSettings(
+                date=chat.date,
+                delta=chat.delta,
+                timezone=chat.timezone,
+                default_photo_id=photo_id,
+            )
 
     async def add_chat(self, chat_id: int, date: datetime, delta: int) -> None:
         """Register the chat; an already registered chat keeps its settings."""
@@ -275,10 +301,7 @@ class Request:
             await session.commit()
 
     async def get_top(self, chat_id, date: datetime):
-        """This method is used to get the top from the database."""
-
-        timezone = tz("Europe/Moscow")
-        date = date.astimezone(tz=timezone)
+        """Trophy counts per hunter since ``date`` (an aware datetime)."""
 
         async with self.session() as session:
             statement = (
@@ -291,7 +314,9 @@ class Request:
             return (await session.execute(statement)).all()
 
     async def get_history(self, chat_id: int, user_id: int, username: str = None):
-        """This method is used to get the history from the database."""
+        """The user's trophies, dated in the chat's time zone."""
+
+        zone = get_zone(await self.get_chat_timezone(chat_id))
 
         async with self.session() as session:
             if username is None:
@@ -312,10 +337,9 @@ class Request:
                 )
 
             data = []
-            timezone = tz("Europe/Moscow")
             for record in (await session.execute(statement)).all():
                 game, date, platform = record
-                date = date.astimezone(tz=timezone)
+                date = date.astimezone(tz=zone)
                 date_str = date.strftime("%d.%m.%Y")
                 data.append((game, date_str, platform))
 

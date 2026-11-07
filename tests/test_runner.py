@@ -54,6 +54,60 @@ def test_non_positive_interval_falls_back_to_one_day():
     assert next_rotation_date(now, 0, now) == now + timedelta(days=1)
 
 
+def test_rotation_keeps_local_time_across_dst_end():
+    """18:00 in Berlin stays 18:00 when summer time ends on 25 October."""
+
+    scheduled = datetime(2026, 10, 24, 16, 0, tzinfo=UTC)  # 18:00 CEST
+
+    new_date = next_rotation_date(scheduled, 1, scheduled, "Europe/Berlin")
+
+    assert new_date == datetime(2026, 10, 25, 17, 0, tzinfo=UTC)  # 18:00 CET
+
+
+def test_rotation_keeps_local_time_across_dst_start():
+    scheduled = datetime(2026, 3, 28, 17, 0, tzinfo=UTC)  # 18:00 CET
+
+    new_date = next_rotation_date(scheduled, 1, scheduled, "Europe/Berlin")
+
+    assert new_date == datetime(2026, 3, 29, 16, 0, tzinfo=UTC)  # 18:00 CEST
+
+
+@pytest.mark.parametrize(
+    "now",
+    [
+        # Within the hour the DST change shifts the slot by: the next slot is
+        # still 25.10 18:00 local (17:00 UTC), not a day later.
+        datetime(2026, 10, 25, 16, 30, tzinfo=UTC),
+        datetime(2026, 10, 25, 15, 59, tzinfo=UTC),
+    ],
+)
+def test_missed_slots_across_dst_do_not_skip_a_slot(now):
+    scheduled = datetime(2026, 10, 20, 16, 0, tzinfo=UTC)  # 18:00 CEST
+
+    assert next_rotation_date(scheduled, 1, now, "Europe/Berlin") == datetime(
+        2026, 10, 25, 17, 0, tzinfo=UTC
+    )
+
+
+def test_missed_slots_across_dst_land_on_the_first_slot_after_now():
+    scheduled = datetime(2026, 10, 20, 16, 0, tzinfo=UTC)  # 18:00 CEST
+    now = datetime(2026, 10, 25, 17, 30, tzinfo=UTC)  # just after 18:00 CET
+
+    assert next_rotation_date(scheduled, 1, now, "Europe/Berlin") == datetime(
+        2026, 10, 26, 17, 0, tzinfo=UTC
+    )
+
+
+def test_zone_without_dst_matches_plain_utc_steps():
+    scheduled = datetime(2026, 10, 1, 18, 0, tzinfo=UTC)
+    now = datetime(2026, 11, 3, 9, 30, tzinfo=UTC)
+
+    for zone in ("UTC", "Europe/Moscow", "Asia/Vladivostok"):
+        assert next_rotation_date(scheduled, 7, now, zone) == datetime(
+            2026, 11, 5, 18, 0, tzinfo=UTC
+        )
+
+
 # --- survey_period_due --------------------------------------------------------
 
 
@@ -89,7 +143,13 @@ class FakeRequest:
     async def get_chats(self):
         # Copies, like rows read in a separate session.
         return [
-            Chat(chat_id=c.chat_id, date=c.date, delta=c.delta, survey_period=c.survey_period)
+            Chat(
+                chat_id=c.chat_id,
+                date=c.date,
+                delta=c.delta,
+                survey_period=c.survey_period,
+                timezone=c.timezone,
+            )
             for c in self.chats.values()
         ]
 
@@ -146,8 +206,27 @@ NOW = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 SURVEY_DONE = date(2026, 11, 1)
 
 
-def make_chat(chat_id=CHAT_ID, scheduled=NOW - timedelta(hours=1), delta=1, survey=SURVEY_DONE):
-    return Chat(chat_id=chat_id, date=scheduled, delta=delta, survey_period=survey)
+def make_chat(
+    chat_id=CHAT_ID,
+    scheduled=NOW - timedelta(hours=1),
+    delta=1,
+    survey=SURVEY_DONE,
+    zone="Europe/Moscow",
+):
+    return Chat(
+        chat_id=chat_id, date=scheduled, delta=delta, survey_period=survey, timezone=zone
+    )
+
+
+async def test_tick_steps_in_the_chat_zone(calls):
+    """A Berlin chat's 18:00 rotation stays at 18:00 local after DST ends."""
+
+    scheduled = datetime(2026, 10, 24, 16, 0, tzinfo=UTC)  # 18:00 CEST
+    request = FakeRequest(make_chat(scheduled=scheduled, zone="Europe/Berlin"))
+
+    await run_due_jobs(FakeBot(), request, now=scheduled + timedelta(minutes=5))
+
+    assert request.chats[CHAT_ID].date == datetime(2026, 10, 25, 17, 0, tzinfo=UTC)
 
 
 async def test_due_rotation_runs_and_moves_the_date(calls):

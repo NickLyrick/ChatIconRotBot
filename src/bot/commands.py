@@ -27,10 +27,18 @@ group_chat_commands = [
 ]
 
 bot_admin_commands = [
+    BotCommand(
+        command="settings",
+        description="Меню настроек: интервал, дата, время смены и часовой пояс",
+    ),
     BotCommand(command="show_settings", description="Показать текущие настройки"),
     BotCommand(
         command="set_date",
-        description="Задать время ближайшей смены по МСК: /set_date ДД/ММ/ГГГГ ЧЧ:ММ",
+        description="Задать время ближайшей смены: /set_date ДД/ММ/ГГГГ ЧЧ:ММ",
+    ),
+    BotCommand(
+        command="set_timezone",
+        description="Задать часовой пояс чата. Пример: /set_timezone Europe/Berlin",
     ),
     BotCommand(
         command="set_delta",
