@@ -1,0 +1,94 @@
+name: Checks
+# Lint, tests and migrations. Not triggered directly: dev.yml runs it on every
+# feature branch, stage.yml and fly.yml run it before deploying.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  lint:
+    name: Pylint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install requirements
+        run: pip install -r requirements-dev.txt
+      - name: Run pylint
+        run: pylint src
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install requirements
+        run: pip install -r requirements-dev.txt
+      - name: Run pytest
+        run: pytest -ra --junitxml=pytest-report.xml
+      - name: Write test summary
+        if: ${{ !cancelled() && hashFiles('pytest-report.xml') != '' }}
+        run: python .github/scripts/pytest_summary.py pytest-report.xml >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test report
+        if: ${{ !cancelled() && hashFiles('pytest-report.xml') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-report
+          path: pytest-report.xml
+          retention-days: 14
+
+  migrations:
+    name: Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        # Same major version as platinum-db on Fly.
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
+      # Importing the models builds the Bot, which only checks the token format.
+      TOKEN: "123456:ci-dummy-token"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install requirements
+        run: pip install -r requirements.txt
+      - name: Upgrade, check models, round-trip
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head

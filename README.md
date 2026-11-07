@@ -210,9 +210,14 @@ See [`src/database/alembic/README`](src/database/alembic/README) for the workflo
 
 Deployment targets [Fly.io](https://fly.io) via GitHub Actions:
 
-- **`master`** → deploys the `platinum` app ([`.github/workflows/fly.yml`](.github/workflows/fly.yml))
-- **`stage`** → deploys the `platinum-dev` app ([`.github/workflows/stage.yml`](.github/workflows/stage.yml))
-- **any other branch** → runs `pylint src` only ([`.github/workflows/dev.yml`](.github/workflows/dev.yml))
+- **`master`** → runs the checks, then deploys the `platinum` app ([`.github/workflows/fly.yml`](.github/workflows/fly.yml))
+- **`stage`** → runs the checks, then deploys the `platinum-dev` app ([`.github/workflows/stage.yml`](.github/workflows/stage.yml))
+- **any other branch** → runs the checks only ([`.github/workflows/dev.yml`](.github/workflows/dev.yml))
+
+The checks ([`.github/workflows/checks.yml`](.github/workflows/checks.yml)) are
+three jobs: Pylint, Tests (with a results table in the run summary) and
+Migrations (upgrade, `alembic check`, downgrade and upgrade again on Postgres 14).
+A deploy starts only if all three pass.
 
 Deploys require the `FLY_API_TOKEN` repository secret. `TOKEN`, `DATABASE_URL`,
 `WEBHOOK_BASE_URL`, `WEBHOOK_SECRET` and `JOBS_SECRET` are expected to be set
