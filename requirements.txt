@@ -4,5 +4,5 @@ pytz==2026.6
 wikipedia==1.4.0
 python-dateutil==4.0.0
 pyYAML==6.0.3
-SQLAlchemy==2.1.8
+SQLAlchemy[asyncio]==2.1.8
 asyncpg==0.32.0
