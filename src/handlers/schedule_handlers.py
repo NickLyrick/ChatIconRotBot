@@ -13,10 +13,12 @@ from src.filters import my_filters
 from src.utility.schedule import (
     MAX_DELTA_DAYS,
     describe_settings,
+    describe_zone,
     example_rotation_date,
     format_chat_date,
     parse_delta,
     parse_rotation_date,
+    parse_timezone,
 )
 
 schedule_router = Router(name=__name__)
@@ -44,12 +46,14 @@ async def set_date(
     command: CommandObject,
     request: Request,
 ) -> None:
-    """Set the date of the next chat avatar change, in Moscow time."""
+    """Set the date of the next chat avatar change, in the chat's time zone."""
 
     now = datetime.now(timezone.utc)
+    zone = await request.get_chat_timezone(message.chat.id)
     usage = (
-        "Укажите дату и время по Москве: /set_date ДД/ММ/ГГГГ ЧЧ:ММ\n"
-        f"Например: /set_date {example_rotation_date(now)}"
+        f"Укажите дату и время ({describe_zone(zone, now)}): "
+        "/set_date ДД/ММ/ГГГГ ЧЧ:ММ\n"
+        f"Например: /set_date {example_rotation_date(now, zone)}"
     )
 
     if not command.args:
@@ -57,7 +61,7 @@ async def set_date(
         return
 
     try:
-        date = parse_rotation_date(command.args)
+        date = parse_rotation_date(command.args, zone)
     except ValueError:
         await message.reply(f"Неверный формат даты.\n{usage}")
         return
@@ -73,8 +77,40 @@ async def set_date(
         return
 
     await message.reply(
-        f"Ближайшая дата смены фото чата установлена на {format_chat_date(date)} (МСК).\n"
+        f"Ближайшая дата смены фото чата установлена на {format_chat_date(date, zone)}.\n"
         "Фото сменится в ближайшую проверку расписания после этого времени."
+    )
+
+
+@schedule_router.message(
+    Command("set_timezone"),
+    my_filters.from_group_or_supergroup,
+    my_filters.check_permissions,
+)
+async def set_timezone(
+    message: types.Message,
+    command: CommandObject,
+    request: Request,
+) -> None:
+    """Set the chat's time zone by city from the menu or by IANA name."""
+
+    zone = parse_timezone(command.args)
+    if zone is None:
+        await message.reply(
+            "Укажите город из меню /settings или название пояса из базы IANA.\n"
+            "Например: /set_timezone Екатеринбург или /set_timezone Europe/Berlin"
+        )
+        return
+
+    if not await request.set_chat_timezone(message.chat.id, zone):
+        await message.reply(NOT_STARTED_TEXT)
+        return
+
+    chat_settings = await request.get_chat_settings(message.chat.id)
+    await message.reply(
+        "Часовой пояс чата изменён. Время смены не сдвигалось, "
+        "поправить его можно в /settings.\n\n"
+        + describe_settings(chat_settings.date, chat_settings.delta, zone)
     )
 
 
@@ -121,8 +157,8 @@ async def show_settings(message: types.Message, request: Request) -> None:
         await message.reply(NOT_STARTED_TEXT)
         return
 
-    date, delta, default_avatar = chat_settings
-    text = describe_settings(date, delta)
+    text = describe_settings(chat_settings.date, chat_settings.delta, chat_settings.timezone)
+    default_avatar = chat_settings.default_photo_id
 
     if default_avatar is None:
         await message.reply(text + "\nСтандартный аватар не установлен")

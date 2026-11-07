@@ -18,6 +18,7 @@ from src.bot.settings import settings
 from src.database import Request
 from src.database.schemas import Chat
 from src.scheduler.jobs import change_avatar, finish_survey
+from src.utility.schedule import get_zone, localize
 
 # Survey results are published on the 1st of every month at this hour (UTC).
 SURVEY_HOUR_UTC = 12
@@ -36,20 +37,27 @@ class TickReport:
     failed: list[int] = field(default_factory=list)
 
 
-def next_rotation_date(scheduled: datetime, delta_days: int, now: datetime) -> datetime | None:
+def next_rotation_date(
+    scheduled: datetime, delta_days: int, now: datetime, zone: str = "UTC"
+) -> datetime | None:
     """Return the date to move a due rotation to, or None if it is not due yet.
 
     After a long sleep several periods may have passed: the chat still gets a
     single rotation, and the schedule jumps to the first slot after ``now``
-    while keeping the original time of day.
+    while keeping the time of day in the chat's zone, across DST changes too.
     """
 
     if scheduled > now:
         return None
 
     step = timedelta(days=max(delta_days or 1, 1))
-    missed = (now - scheduled) // step
-    return scheduled + (missed + 1) * step
+    local = scheduled.astimezone(get_zone(zone)).replace(tzinfo=None)
+    # Counted in UTC the number of missed slots can be off by one around a DST
+    # change, so start one slot early and step forward.
+    slot = max((now - scheduled) // step, 1)
+    while (candidate := localize(local + slot * step, zone)) <= now:
+        slot += 1
+    return candidate
 
 
 def survey_period_due(now: datetime) -> date | None:
@@ -96,7 +104,7 @@ async def _run_chat(
 
     period = survey_period_due(now)
     survey_due = period is not None and chat.survey_period != period
-    new_date = next_rotation_date(chat.date, chat.delta, now)
+    new_date = next_rotation_date(chat.date, chat.delta, now, chat.timezone)
 
     if not survey_due and new_date is None:
         return

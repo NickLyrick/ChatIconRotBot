@@ -46,6 +46,8 @@ class Chat(Base):
     delta = Column(Integer, nullable=False)
     # First day of the month whose survey results were last published.
     survey_period = Column(Date)
+    # IANA zone the chat's admins enter and read dates in.
+    timezone = Column(Text, nullable=False, server_default=text("'Europe/Moscow'"))
 
 
 class History(Base):

@@ -15,4 +15,5 @@ from .settings_menu import (
     build_delta_keyboard,
     build_main_keyboard,
     build_time_keyboard,
+    build_timezone_keyboard,
 )

@@ -8,7 +8,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.utility.schedule import day_label
+from src.utility.schedule import TIMEZONE_CHOICES, day_label, describe_zone
 
 DELTA_CHOICES = (1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 30)
 
@@ -24,6 +24,8 @@ class SettingsAction(str, Enum):
     SET_DATE = "set_date"
     TIME = "time"  # choose a new hour for the next rotation
     SET_TIME = "set_time"
+    TIMEZONE = "tz"  # choose the chat's time zone
+    SET_TIMEZONE = "set_tz"
     CLOSE = "close"
 
 
@@ -35,6 +37,8 @@ class SettingsCallbackData(CallbackData, prefix="settings"):
     value: Optional[int] = None
     # Chosen day as date.toordinal() for DATE_DAY and SET_DATE.
     day: Optional[int] = None
+    # IANA zone name for SET_TIMEZONE.
+    zone: Optional[str] = None
 
 
 def _button(builder: InlineKeyboardBuilder, text: str, action: SettingsAction, **data):
@@ -53,8 +57,9 @@ def build_main_keyboard() -> InlineKeyboardMarkup:
     _button(builder, "Интервал", SettingsAction.DELTA)
     _button(builder, "Дата", SettingsAction.DATE)
     _button(builder, "Время", SettingsAction.TIME)
+    _button(builder, "Часовой пояс", SettingsAction.TIMEZONE)
     _button(builder, "Закрыть", SettingsAction.CLOSE)
-    builder.adjust(3, 1)
+    builder.adjust(3, 1, 1)
     return builder.as_markup()
 
 
@@ -69,12 +74,14 @@ def build_delta_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def build_day_keyboard(days: list[date], now: datetime) -> InlineKeyboardMarkup:
+def build_day_keyboard(days: list[date], now: datetime, zone: str) -> InlineKeyboardMarkup:
     """Day choices for the next rotation."""
 
     builder = InlineKeyboardBuilder()
     for day in days:
-        _button(builder, day_label(day, now), SettingsAction.DATE_DAY, day=day.toordinal())
+        _button(
+            builder, day_label(day, now, zone), SettingsAction.DATE_DAY, day=day.toordinal()
+        )
     _button(builder, "« Назад", SettingsAction.MAIN)
     builder.adjust(*([2] * ((len(days) + 1) // 2)), 1)
     return builder.as_markup()
@@ -97,4 +104,15 @@ def build_time_keyboard() -> InlineKeyboardMarkup:
     _hours(builder, list(range(24)), SettingsAction.SET_TIME)
     _button(builder, "« Назад", SettingsAction.MAIN)
     builder.adjust(6, 6, 6, 6, 1)
+    return builder.as_markup()
+
+
+def build_timezone_keyboard(now: datetime) -> InlineKeyboardMarkup:
+    """Time zone choices, with their current UTC offsets."""
+
+    builder = InlineKeyboardBuilder()
+    for zone in TIMEZONE_CHOICES:
+        _button(builder, describe_zone(zone, now), SettingsAction.SET_TIMEZONE, zone=zone)
+    _button(builder, "« Назад", SettingsAction.MAIN)
+    builder.adjust(*([2] * ((len(TIMEZONE_CHOICES) + 1) // 2)), 1)
     return builder.as_markup()

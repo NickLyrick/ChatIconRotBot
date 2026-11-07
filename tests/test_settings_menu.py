@@ -13,6 +13,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import InaccessibleMessage
 
 from src.bot.settings import settings
+from src.database.connect import ChatSettings
 from src.filters.filters import CheckPermissions
 from src.handlers import settings_menu_handlers as menu
 from src.handlers.schedule_handlers import NOT_STARTED_TEXT
@@ -25,12 +26,15 @@ from src.keyboards.inline import (
     build_delta_keyboard,
     build_main_keyboard,
     build_time_keyboard,
+    build_timezone_keyboard,
 )
-from src.utility.schedule import upcoming_days
+from src.utility.schedule import TIMEZONE_CHOICES, upcoming_days
 
 UTC = timezone.utc
 CHAT_ID = -1001234567890
 USER_ID = 111
+MSK = "Europe/Moscow"
+VLAD = "Asia/Vladivostok"
 
 # 15:30 in Moscow on Saturday, 7 November 2026.
 NOW = datetime(2026, 11, 7, 12, 30, tzinfo=UTC)
@@ -79,10 +83,11 @@ class FakeCallback:
 class FakeRequest:
     """Chat settings in memory."""
 
-    def __init__(self, registered=True, date_=None, delta=1):
+    def __init__(self, registered=True, date_=None, delta=1, zone=MSK):
         self.registered = registered
-        self.date = date_ or datetime(2026, 11, 10, 15, 0, tzinfo=UTC)  # 10.11 18:00
+        self.date = date_ or datetime(2026, 11, 10, 15, 0, tzinfo=UTC)  # 10.11 18:00 MSK
         self.delta = delta
+        self.zone = zone
 
     async def set_chat_date(self, chat_id, date):
         if self.registered:
@@ -94,8 +99,15 @@ class FakeRequest:
             self.delta = delta
         return self.registered
 
+    async def set_chat_timezone(self, chat_id, zone):
+        if self.registered:
+            self.zone = zone
+        return self.registered
+
     async def get_chat_settings(self, chat_id):
-        return [self.date, self.delta, None] if self.registered else None
+        if not self.registered:
+            return None
+        return ChatSettings(self.date, self.delta, self.zone, None)
 
 
 def buttons(markup) -> list[tuple[str, SettingsCallbackData]]:
@@ -133,8 +145,25 @@ def test_main_keyboard():
         ("Интервал", SettingsAction.DELTA),
         ("Дата", SettingsAction.DATE),
         ("Время", SettingsAction.TIME),
+        ("Часовой пояс", SettingsAction.TIMEZONE),
         ("Закрыть", SettingsAction.CLOSE),
     ]
+
+
+def test_every_timezone_button_fits_telegram_limit():
+    for zone in TIMEZONE_CHOICES:
+        data = SettingsCallbackData(action=SettingsAction.SET_TIMEZONE, zone=zone)
+        assert len(data.pack().encode()) <= 64
+        assert SettingsCallbackData.unpack(data.pack()).zone == zone
+
+
+def test_timezone_keyboard_shows_offsets():
+    pressed = buttons(build_timezone_keyboard(NOW))
+
+    assert [data.zone for _, data in pressed[:-1]] == list(TIMEZONE_CHOICES)
+    assert ("Москва (UTC+3)", MSK) in [(text, data.zone) for text, data in pressed]
+    assert ("Берлин (UTC+1)", "Europe/Berlin") in [(text, data.zone) for text, data in pressed]
+    assert pressed[-1][1].action == SettingsAction.MAIN
 
 
 def test_delta_keyboard_offers_the_choices_and_back():
@@ -145,7 +174,7 @@ def test_delta_keyboard_offers_the_choices_and_back():
 
 
 def test_day_keyboard_labels_and_days():
-    pressed = buttons(build_day_keyboard(upcoming_days(NOW), NOW))
+    pressed = buttons(build_day_keyboard(upcoming_days(NOW, MSK), NOW, MSK))
 
     assert [text for text, _ in pressed[:3]] == ["Сегодня", "Завтра", "Пн 09.11"]
     assert pressed[0][1].day == TODAY.toordinal()
@@ -177,7 +206,7 @@ async def test_settings_command_shows_settings_and_main_menu():
     await menu.settings_menu(message, FakeRequest(delta=3))
 
     text, markup = message.replies[0]
-    assert "10.11.2026 18:00 (МСК)" in text
+    assert "10.11.2026 18:00 (Москва)" in text
     assert "3д." in text
     assert buttons(markup)[0][1].action == SettingsAction.DELTA
 
@@ -230,8 +259,8 @@ async def test_date_flow_sets_day_and_hour():
         request, SettingsAction.SET_DATE, day=TOMORROW.toordinal(), value=9
     )
     assert request.date == datetime(2026, 11, 8, 6, 0, tzinfo=UTC)
-    assert chosen.answers == [("Ближайшая смена: 08.11.2026 09:00 (МСК)", False)]
-    assert "08.11.2026 09:00 (МСК)" in chosen.message.text
+    assert chosen.answers == [("Ближайшая смена: 08.11.2026 09:00 (Москва)", False)]
+    assert "08.11.2026 09:00 (Москва)" in chosen.message.text
 
 
 async def test_today_offers_only_future_hours():
@@ -272,7 +301,7 @@ async def test_day_that_is_not_offered_is_refused(day):
 async def test_time_menu_shows_current_rotation():
     callback = await press(FakeRequest(), SettingsAction.TIME)
 
-    assert "10.11.2026 18:00 (МСК)" in callback.message.text
+    assert "10.11.2026 18:00 (Москва)" in callback.message.text
     assert len(buttons(callback.message.markup)) == 24 + 1
 
 
@@ -282,7 +311,7 @@ async def test_choosing_a_time_keeps_the_day():
     callback = await press(request, SettingsAction.SET_TIME, value=21)
 
     assert request.date == datetime(2026, 11, 10, 18, 0, tzinfo=UTC)
-    assert callback.answers == [("Ближайшая смена: 10.11.2026 21:00 (МСК)", False)]
+    assert callback.answers == [("Ближайшая смена: 10.11.2026 21:00 (Москва)", False)]
 
 
 async def test_invalid_hour_is_ignored():
@@ -367,3 +396,62 @@ async def test_bot_admin_may_press_buttons(monkeypatch):
     allowed = await CheckPermissions()(FakeCallback(), FakeBot(ChatMemberStatus.MEMBER))
 
     assert allowed is True
+
+
+# --- time zone ----------------------------------------------------------------
+
+
+async def test_timezone_menu_shows_the_current_zone():
+    callback = await press(FakeRequest(zone=VLAD), SettingsAction.TIMEZONE)
+
+    assert callback.message.text.startswith("Сейчас: Владивосток (UTC+10).")
+    assert len(buttons(callback.message.markup)) == len(TIMEZONE_CHOICES) + 1
+
+
+async def test_choosing_a_zone_saves_it_and_keeps_the_rotation_moment():
+    request = FakeRequest()
+    before = request.date
+
+    callback = await press(request, SettingsAction.SET_TIMEZONE, zone=VLAD)
+
+    assert request.zone == VLAD
+    assert request.date == before
+    assert callback.answers == [
+        (
+            "Часовой пояс: Владивосток (UTC+10). "
+            "Ближайшая смена: 11.11.2026 01:00 (Владивосток)",
+            False,
+        )
+    ]
+    assert "Часовой пояс: Владивосток (UTC+10)." in callback.message.text
+
+
+async def test_zone_outside_the_menu_is_ignored():
+    request = FakeRequest()
+
+    callback = await press(request, SettingsAction.SET_TIMEZONE, zone="Europe/Paris")
+
+    assert request.zone == MSK
+    assert callback.answers == [(menu.EXPIRED_TEXT, False)]
+
+
+async def test_days_and_hours_follow_the_chat_zone():
+    """At 22:30 in Vladivostok only 23:00 is left today."""
+
+    request = FakeRequest(zone=VLAD)
+
+    hours = await press(request, SettingsAction.DATE_DAY, day=TODAY.toordinal())
+    assert [data.value for _, data in buttons(hours.message.markup)[:-1]] == [23]
+
+    chosen = await press(request, SettingsAction.SET_DATE, day=TODAY.toordinal(), value=23)
+    assert request.date == datetime(2026, 11, 7, 13, 0, tzinfo=UTC)
+    assert chosen.answers == [("Ближайшая смена: 07.11.2026 23:00 (Владивосток)", False)]
+
+
+async def test_time_keeps_the_day_in_the_chat_zone():
+    # 10.11 15:00 UTC is 11.11 01:00 in Vladivostok.
+    request = FakeRequest(zone=VLAD)
+
+    await press(request, SettingsAction.SET_TIME, value=9)
+
+    assert request.date == datetime(2026, 11, 10, 23, 0, tzinfo=UTC)  # 11.11 09:00

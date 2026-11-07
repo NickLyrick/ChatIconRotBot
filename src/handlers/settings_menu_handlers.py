@@ -1,9 +1,11 @@
 """The /settings menu: change the rotation schedule with inline buttons.
 
 Every button redraws the same message. Each action returns an optional short
-notice that pops up for the admin who pressed the button.
+notice that pops up for the admin who pressed the button. Days and hours are
+in the chat's time zone.
 """
 
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Awaitable, Callable, Optional
 
@@ -13,6 +15,7 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup
 
 from src.database import Request
+from src.database.connect import ChatSettings
 from src.filters import my_filters
 from src.handlers.schedule_handlers import NOT_STARTED_TEXT, error_handler
 from src.keyboards.inline import (
@@ -24,10 +27,13 @@ from src.keyboards.inline import (
     build_delta_keyboard,
     build_main_keyboard,
     build_time_keyboard,
+    build_timezone_keyboard,
 )
 from src.utility.schedule import (
+    TIMEZONE_CHOICES,
     available_hours,
     describe_settings,
+    describe_zone,
     format_chat_date,
     rotation_at,
     upcoming_days,
@@ -55,16 +61,35 @@ def _now() -> datetime:
 async def settings_menu(message: types.Message, request: Request) -> None:
     """Open the settings menu."""
 
-    chat_settings = await request.get_chat_settings(chat_id=message.chat.id)
-    if chat_settings is None:
+    chat = await request.get_chat_settings(chat_id=message.chat.id)
+    if chat is None:
         await message.reply(NOT_STARTED_TEXT)
         return
 
-    next_rotation, delta, _ = chat_settings
     await message.reply(
-        describe_settings(next_rotation, delta) + MAIN_HINT,
+        describe_settings(chat.date, chat.delta, chat.timezone) + MAIN_HINT,
         reply_markup=build_main_keyboard(),
     )
+
+
+@dataclass
+class Press:
+    """A button press: where to redraw, what was pressed, the chat's settings."""
+
+    message: types.Message
+    request: Request
+    data: SettingsCallbackData
+    now: datetime
+    chat: ChatSettings
+
+    @property
+    def zone(self) -> str:
+        """The chat's IANA time zone."""
+        return self.chat.timezone
+
+    def date_text(self, value: datetime) -> str:
+        """A date in the chat's zone, with the zone's name."""
+        return format_chat_date(value, self.zone)
 
 
 # --- drawing ------------------------------------------------------------------
@@ -82,52 +107,52 @@ async def _edit(
             raise
 
 
-async def _show_main(message: types.Message, request: Request, close: bool = False):
+async def _show_main(press: Press, close: bool = False) -> None:
     """Redraw the current settings, with the main buttons unless closing."""
 
-    chat_settings = await request.get_chat_settings(chat_id=message.chat.id)
-    if chat_settings is None:
-        await _edit(message, NOT_STARTED_TEXT)
+    chat = await press.request.get_chat_settings(chat_id=press.message.chat.id)
+    if chat is None:
+        await _edit(press.message, NOT_STARTED_TEXT)
         return
 
-    next_rotation, delta, _ = chat_settings
-    text = describe_settings(next_rotation, delta)
+    text = describe_settings(chat.date, chat.delta, chat.timezone)
     if close:
-        await _edit(message, text)
+        await _edit(press.message, text)
     else:
-        await _edit(message, text + MAIN_HINT, build_main_keyboard())
+        await _edit(press.message, text + MAIN_HINT, build_main_keyboard())
 
 
-async def _show_days(message: types.Message, now: datetime) -> None:
+async def _show_days(press: Press) -> None:
     await _edit(
-        message,
+        press.message,
         "Выберите день ближайшей смены:",
-        build_day_keyboard(upcoming_days(now), now),
+        build_day_keyboard(upcoming_days(press.now, press.zone), press.now, press.zone),
     )
 
 
-async def _show_hours(message: types.Message, day: date, now: datetime) -> None:
+async def _show_hours(press: Press, day: date) -> None:
     await _edit(
-        message,
-        f"Выберите час смены {day.strftime('%d.%m')} (МСК):",
-        build_date_hour_keyboard(day, available_hours(day, now)),
+        press.message,
+        f"Выберите час смены {day.strftime('%d.%m')} ({describe_zone(press.zone, press.now)}):",
+        build_date_hour_keyboard(day, available_hours(day, press.now, press.zone)),
     )
 
 
 # --- button data --------------------------------------------------------------
 
 
-def _chosen_day(data: SettingsCallbackData, now: datetime) -> Optional[date]:
+def _chosen_day(press: Press) -> Optional[date]:
     """The day from a button, if it is still one of the offered days."""
 
-    if data.day is None:
+    if press.data.day is None:
         return None
-    day = date.fromordinal(data.day)
-    return day if day in upcoming_days(now) else None
+    day = date.fromordinal(press.data.day)
+    return day if day in upcoming_days(press.now, press.zone) else None
 
 
-def _chosen_hour(data: SettingsCallbackData) -> Optional[int]:
-    return data.value if data.value is not None and 0 <= data.value <= 23 else None
+def _chosen_hour(press: Press) -> Optional[int]:
+    value = press.data.value
+    return value if value is not None and 0 <= value <= 23 else None
 
 
 # --- actions ------------------------------------------------------------------
@@ -135,93 +160,109 @@ def _chosen_hour(data: SettingsCallbackData) -> Optional[int]:
 Notice = Optional[str]
 
 
-async def _main(message, request, data, now) -> Notice:
-    await _show_main(message, request)
+async def _main(press: Press) -> Notice:
+    await _show_main(press)
 
 
-async def _close(message, request, data, now) -> Notice:
-    await _show_main(message, request, close=True)
+async def _close(press: Press) -> Notice:
+    await _show_main(press, close=True)
 
 
-async def _delta(message, request, data, now) -> Notice:
-    await _edit(message, "Выберите промежуток между сменами:", build_delta_keyboard())
+async def _delta(press: Press) -> Notice:
+    await _edit(press.message, "Выберите промежуток между сменами:", build_delta_keyboard())
 
 
-async def _set_delta(message, request, data, now) -> Notice:
+async def _set_delta(press: Press) -> Notice:
     notice = EXPIRED_TEXT
-    if data.value in DELTA_CHOICES and await request.set_chat_delta(
-        chat_id=message.chat.id, delta=data.value
+    delta = press.data.value
+    if delta in DELTA_CHOICES and await press.request.set_chat_delta(
+        chat_id=press.message.chat.id, delta=delta
     ):
-        notice = f"Промежуток: {data.value}д. Начнёт действовать после ближайшей смены."
-    await _show_main(message, request)
+        notice = f"Промежуток: {delta}д. Начнёт действовать после ближайшей смены."
+    await _show_main(press)
     return notice
 
 
-async def _date(message, request, data, now) -> Notice:
-    await _show_days(message, now)
+async def _date(press: Press) -> Notice:
+    await _show_days(press)
 
 
-async def _date_day(message, request, data, now) -> Notice:
-    day = _chosen_day(data, now)
+async def _date_day(press: Press) -> Notice:
+    day = _chosen_day(press)
     if day is None:
-        await _show_days(message, now)
+        await _show_days(press)
         return DAY_GONE_TEXT
-    await _show_hours(message, day, now)
+    await _show_hours(press, day)
     return None
 
 
-async def _set_date(message, request, data, now) -> Notice:
-    day, hour = _chosen_day(data, now), _chosen_hour(data)
+async def _set_date(press: Press) -> Notice:
+    day, hour = _chosen_day(press), _chosen_hour(press)
     if day is None or hour is None:
-        await _show_days(message, now)
+        await _show_days(press)
         return DAY_GONE_TEXT
 
-    new_date = rotation_at(day, hour)
-    if new_date <= now:
-        await _show_hours(message, day, now)
+    new_date = rotation_at(day, hour, press.zone)
+    if new_date <= press.now:
+        await _show_hours(press, day)
         return HOUR_GONE_TEXT
 
     notice = None
-    if await request.set_chat_date(message.chat.id, new_date):
-        notice = f"Ближайшая смена: {format_chat_date(new_date)} (МСК)"
-    await _show_main(message, request)
+    if await press.request.set_chat_date(press.message.chat.id, new_date):
+        notice = f"Ближайшая смена: {press.date_text(new_date)}"
+    await _show_main(press)
     return notice
 
 
-async def _time(message, request, data, now) -> Notice:
-    chat_settings = await request.get_chat_settings(chat_id=message.chat.id)
-    if chat_settings is None:
-        await _edit(message, NOT_STARTED_TEXT)
-        return None
-
+async def _time(press: Press) -> Notice:
     await _edit(
-        message,
-        f"Ближайшая смена: {format_chat_date(chat_settings[0])} (МСК).\n"
-        "Выберите новый час (МСК). День сохранится, а если этот час уже прошёл, "
+        press.message,
+        f"Ближайшая смена: {press.date_text(press.chat.date)}.\n"
+        f"Выберите новый час ({describe_zone(press.zone, press.now)}). "
+        "День сохранится, а если этот час уже прошёл, "
         "смена перенесётся на следующий день:",
         build_time_keyboard(),
     )
-    return None
 
 
-async def _set_time(message, request, data, now) -> Notice:
-    hour = _chosen_hour(data)
-    chat_settings = await request.get_chat_settings(chat_id=message.chat.id)
-
-    notice = EXPIRED_TEXT if hour is None else None
-    if hour is not None and chat_settings is not None:
-        new_date = with_hour(chat_settings[0], hour, now)
-        if await request.set_chat_date(message.chat.id, new_date):
-            notice = f"Ближайшая смена: {format_chat_date(new_date)} (МСК)"
-    await _show_main(message, request)
+async def _set_time(press: Press) -> Notice:
+    hour = _chosen_hour(press)
+    notice = EXPIRED_TEXT
+    if hour is not None:
+        new_date = with_hour(press.chat.date, hour, press.now, press.zone)
+        notice = None
+        if await press.request.set_chat_date(press.message.chat.id, new_date):
+            notice = f"Ближайшая смена: {press.date_text(new_date)}"
+    await _show_main(press)
     return notice
 
 
-Action = Callable[
-    [types.Message, Request, SettingsCallbackData, datetime], Awaitable[Notice]
-]
+async def _timezone(press: Press) -> Notice:
+    await _edit(
+        press.message,
+        f"Сейчас: {describe_zone(press.zone, press.now)}.\n"
+        "Выберите часовой пояс чата. Время ближайшей смены не сдвинется, "
+        "изменится только то, как оно показывается и вводится.\n"
+        "Другого пояса нет в списке? /set_timezone Europe/Berlin",
+        build_timezone_keyboard(press.now),
+    )
 
-ACTIONS: dict[SettingsAction, Action] = {
+
+async def _set_timezone(press: Press) -> Notice:
+    zone = press.data.zone
+    notice = EXPIRED_TEXT
+    if zone in TIMEZONE_CHOICES and await press.request.set_chat_timezone(
+        press.message.chat.id, zone
+    ):
+        notice = (
+            f"Часовой пояс: {describe_zone(zone, press.now)}. "
+            f"Ближайшая смена: {format_chat_date(press.chat.date, zone)}"
+        )
+    await _show_main(press)
+    return notice
+
+
+ACTIONS: dict[SettingsAction, Callable[[Press], Awaitable[Notice]]] = {
     SettingsAction.MAIN: _main,
     SettingsAction.CLOSE: _close,
     SettingsAction.DELTA: _delta,
@@ -231,6 +272,8 @@ ACTIONS: dict[SettingsAction, Action] = {
     SettingsAction.SET_DATE: _set_date,
     SettingsAction.TIME: _time,
     SettingsAction.SET_TIME: _set_time,
+    SettingsAction.TIMEZONE: _timezone,
+    SettingsAction.SET_TIMEZONE: _set_timezone,
 }
 
 
@@ -244,13 +287,18 @@ async def settings_button(
 ) -> None:
     """Handle a press on a settings menu button."""
 
-    if callback.message is None or isinstance(
-        callback.message, types.InaccessibleMessage
-    ):
+    message = callback.message
+    if message is None or isinstance(message, types.InaccessibleMessage):
         # Telegram no longer gives the bot messages this old, so it cannot edit them.
         await callback.answer(EXPIRED_TEXT, show_alert=True)
         return
 
-    action = ACTIONS[callback_data.action]
-    notice = await action(callback.message, request, callback_data, _now())
+    chat = await request.get_chat_settings(chat_id=message.chat.id)
+    if chat is None:
+        await _edit(message, NOT_STARTED_TEXT)
+        await callback.answer()
+        return
+
+    press = Press(message, request, callback_data, _now(), chat)
+    notice = await ACTIONS[callback_data.action](press)
     await callback.answer(notice)
