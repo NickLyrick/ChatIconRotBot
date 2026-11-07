@@ -9,9 +9,9 @@ jobs:
       name: Check code
       runs-on: ubuntu-latest
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v7
         - name: Set up Python
-          uses: actions/setup-python@v5
+          uses: actions/setup-python@v7
           with:
             python-version: '3.12'
             cache: 'pip'
@@ -47,9 +47,9 @@ jobs:
         # Importing the models builds the Bot, which only checks the token format.
         TOKEN: "123456:ci-dummy-token"
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v7
         - name: Set up Python
-          uses: actions/setup-python@v5
+          uses: actions/setup-python@v7
           with:
             python-version: '3.12'
             cache: 'pip'
