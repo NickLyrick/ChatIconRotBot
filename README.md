@@ -46,8 +46,10 @@ SQLAlchemy 2.0 + PostgreSQL, Alembic. All bot messages are in Russian.
 | Command | Description |
 | --- | --- |
 | `/show_settings` | Show the next rotation date, the interval and the default avatar |
-| `/set_date DD/MM/YYYY HH:MM` | Set the next avatar rotation (UTC) |
-| `/set_delta N` | Set the interval between rotations, in days |
+| `/set_date DD/MM/YYYY HH:MM` | Set the next avatar rotation (Moscow time) |
+| `/set_delta N` | Set the interval between rotations, 1–365 days; applies after the next rotation |
+
+Dates are entered and shown in Moscow time and stored in UTC.
 
 Posting a photo captioned `@YourBotName *Default*` as a user with
 *change group info* rights sets the chat's fallback avatar, used whenever the
