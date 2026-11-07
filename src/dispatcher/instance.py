@@ -12,6 +12,7 @@ from src.handlers.basic_handlers import basic_router
 from src.handlers.game_score_handlers import game_score_router
 from src.handlers.records_handlers import records_router
 from src.handlers.schedule_handlers import schedule_router
+from src.handlers.settings_menu_handlers import settings_router
 from src.handlers.tables_handlers import table_router
 from src.handlers.wiki_handlers import wiki_router
 
@@ -27,6 +28,7 @@ dispatcher.include_routers(
     game_score_router,
     table_router,
     schedule_router,
+    settings_router,
     records_router,
     wiki_router,
 )
