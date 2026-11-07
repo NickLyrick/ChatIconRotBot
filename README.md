@@ -215,7 +215,7 @@ Deployment targets [Fly.io](https://fly.io) via GitHub Actions:
 - **any other branch** → runs the checks only ([`.github/workflows/dev.yml`](.github/workflows/dev.yml))
 
 The checks ([`.github/workflows/checks.yml`](.github/workflows/checks.yml)) are
-three jobs: Pylint, Tests (with a results table in the run summary) and
+three jobs: Pylint, Tests (results and coverage tables in the run summary) and
 Migrations (upgrade, `alembic check`, downgrade and upgrade again on Postgres 14).
 A deploy starts only if all three pass.
 

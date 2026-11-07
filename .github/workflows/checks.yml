@@ -43,16 +43,26 @@ jobs:
       - name: Install requirements
         run: pip install -r requirements-dev.txt
       - name: Run pytest
-        run: pytest -ra --junitxml=pytest-report.xml
+        run: pytest -ra --junitxml=pytest-report.xml --cov --cov-report=term --cov-report=xml
       - name: Write test summary
         if: ${{ !cancelled() && hashFiles('pytest-report.xml') != '' }}
         run: python .github/scripts/pytest_summary.py pytest-report.xml >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload test report
+      - name: Write coverage summary
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: |
+          {
+            echo "## Coverage"
+            echo
+            coverage report --format=markdown --skip-covered
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test and coverage reports
         if: ${{ !cancelled() && hashFiles('pytest-report.xml') != '' }}
         uses: actions/upload-artifact@v7
         with:
-          name: pytest-report
-          path: pytest-report.xml
+          name: test-reports
+          path: |
+            pytest-report.xml
+            coverage.xml
           retention-days: 14
 
   migrations:
