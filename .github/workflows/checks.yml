@@ -8,7 +8,8 @@ permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: '3.12'
+  # Keep in step with the Dockerfile, runtime.txt and .devcontainer/Dockerfile.
+  PYTHON_VERSION: '3.14'
 
 jobs:
   lint:

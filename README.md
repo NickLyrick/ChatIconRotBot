@@ -63,7 +63,7 @@ queue runs dry.
 
 ## Requirements
 
-- Python 3.12
+- Python 3.14
 - PostgreSQL
 - System packages for table rendering: `poppler-utils`, `pango`, and a font with
   Cyrillic coverage (the Docker image installs `font-noto`)
@@ -135,7 +135,7 @@ docker run --rm -e TOKEN=... -e DATABASE_URL=... chaticonrotbot python main.py
 ### Dev container
 
 The repository ships a VS Code dev container
-([`.devcontainer/`](.devcontainer/)) with Python 3.12 and a PostgreSQL service,
+([`.devcontainer/`](.devcontainer/)) with Python 3.14 and a PostgreSQL service,
 so you can open the project in a container and get a local database for free.
 
 ## Project layout
