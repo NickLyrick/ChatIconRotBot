@@ -12,6 +12,7 @@ from src.database import Request
 from src.filters import my_filters
 from src.utility.schedule import (
     MAX_DELTA_DAYS,
+    describe_settings,
     example_rotation_date,
     format_chat_date,
     parse_delta,
@@ -121,10 +122,7 @@ async def show_settings(message: types.Message, request: Request) -> None:
         return
 
     date, delta, default_avatar = chat_settings
-    text = (
-        f"Ближайшая дата смены: {format_chat_date(date)} (МСК).\n"
-        f"Промежуток между сменами: {delta}д."
-    )
+    text = describe_settings(date, delta)
 
     if default_avatar is None:
         await message.reply(text + "\nСтандартный аватар не установлен")

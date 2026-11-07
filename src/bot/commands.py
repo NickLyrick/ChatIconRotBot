@@ -27,6 +27,10 @@ group_chat_commands = [
 ]
 
 bot_admin_commands = [
+    BotCommand(
+        command="settings",
+        description="Меню настроек: интервал, дата и время смены кнопками",
+    ),
     BotCommand(command="show_settings", description="Показать текущие настройки"),
     BotCommand(
         command="set_date",

@@ -45,6 +45,7 @@ SQLAlchemy 2.0 + PostgreSQL, Alembic. All bot messages are in Russian.
 
 | Command | Description |
 | --- | --- |
+| `/settings` | Menu with buttons to set the interval, the day and the hour of the next rotation |
 | `/show_settings` | Show the next rotation date, the interval and the default avatar |
 | `/set_date DD/MM/YYYY HH:MM` | Set the next avatar rotation (Moscow time) |
 | `/set_delta N` | Set the interval between rotations, 1–365 days; applies after the next rotation |
