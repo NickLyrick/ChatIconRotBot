@@ -1,6 +1,6 @@
 """This module contains handlers for tables commands."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aiogram import Bot, Router, flags, types
 from aiogram.enums import ChatAction
@@ -11,6 +11,7 @@ from aiogram.utils import formatting
 from src.bot.settings import settings
 from src.database import Request
 from src.utility.rich_table import table_message
+from src.utility.schedule import localize
 
 table_router = Router(name=__name__)
 
@@ -53,13 +54,17 @@ async def top(message: types.Message, command: CommandObject, request: Request) 
 
     chat_id = message.chat.id
     arguments = command.args
-    date = datetime(1980, 1, 1)
+    date = datetime(1980, 1, 1, tzinfo=timezone.utc)
 
     caption = "Топ за всё время"
     if arguments is not None:
         try:
-            date = datetime.strptime(arguments, "%d.%m.%Y")
-            caption = f"Топ от {arguments}"
+            # The day starts at midnight in the chat's time zone.
+            date = localize(
+                datetime.strptime(arguments.strip(), "%d.%m.%Y"),
+                await request.get_chat_timezone(chat_id),
+            )
+            caption = f"Топ от {arguments.strip()}"
         except ValueError:
             caption = "Топ за всё время"
 

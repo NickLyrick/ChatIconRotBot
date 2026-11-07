@@ -5,7 +5,7 @@ import dataclasses
 from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
 from aiogram.filters import BaseFilter
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 from aiogram.utils import formatting
 
 from src.bot.settings import settings
@@ -64,25 +64,34 @@ class FromGroupOrSuperGroup(BaseFilter):
 
 
 class CheckPermissions(BaseFilter):
-    """Check if the user has permissions to change bot settings."""
+    """Check if the user may change the bot settings: the chat owner or a bot admin.
 
-    async def __call__(self, message: Message) -> bool:
+    Works for commands and for presses on the settings menu buttons.
+    """
+
+    DENIED_TEXT = "У вас нет прав для изменения настроек бота для данного чата"
+
+    async def __call__(self, event: Message | CallbackQuery, bot: Bot) -> bool:
+        is_callback = not isinstance(event, Message)
+        chat = event.message.chat if is_callback else event.chat
+
         try:
-            member = await message.chat.get_member(message.from_user.id)
-            is_chat_admin: bool = (
-                member.status == ChatMemberStatus.CREATOR
-                or member.user.id in settings.bot.admin_ids
-            )
-            if is_chat_admin:
+            if event.from_user.id in settings.bot.admin_ids:
                 return True
-
-            await message.reply(
-                text="У вас нет прав для изменения настроек бота для данного чата"
-            )
-            return False
+            member = await bot.get_chat_member(chat_id=chat.id, user_id=event.from_user.id)
+            if member.status == ChatMemberStatus.CREATOR:
+                return True
+            error_text = self.DENIED_TEXT
         except Exception as e:
-            await message.answer(text=f"Ошибка: \n" f"{formatting.Pre(e)}.as_html()")
-            return False
+            error_text = f"Ошибка: \n{formatting.Pre(e).as_html()}"
+
+        if is_callback:
+            await event.answer(text=self.DENIED_TEXT, show_alert=True)
+        elif error_text == self.DENIED_TEXT:
+            await event.reply(text=error_text)
+        else:
+            await event.answer(text=error_text)
+        return False
 
 
 @dataclasses.dataclass

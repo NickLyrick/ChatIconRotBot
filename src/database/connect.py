@@ -5,7 +5,6 @@ import logging
 from datetime import date, datetime
 from typing import List, NamedTuple, Optional, Tuple
 
-from pytz import timezone as tz
 from sqlalchemy import between, bindparam, delete, desc, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import (
@@ -17,6 +16,7 @@ from sqlalchemy.ext.asyncio import (
 
 from src.bot.settings import settings
 from src.utility.platinum_record import PlatinumRecord
+from src.utility.schedule import DEFAULT_TIMEZONE, get_zone
 
 from .schemas import Chat, History, Platinum, Scores, Surveys
 
@@ -34,6 +34,15 @@ class QueuedAvatar(NamedTuple):
     game: Optional[str]
     platform: Optional[str]
     text: str
+
+
+class ChatSettings(NamedTuple):
+    """A chat's rotation schedule and default avatar."""
+
+    date: datetime  # next rotation, UTC
+    delta: int  # days between rotations
+    timezone: str  # IANA zone admins enter and read dates in
+    default_photo_id: Optional[str]
 
 
 class Request:
@@ -90,13 +99,6 @@ class Request:
         async with self.session() as session:
             return list((await session.scalars(select(Chat))).all())
 
-    async def chat_exists(self, chat_id: int) -> bool:
-        """Whether the chat has been registered with /start."""
-
-        async with self.session() as session:
-            statement = select(Chat.chat_id).where(Chat.chat_id == chat_id)
-            return (await session.scalar(statement)) is not None
-
     async def claim_rotation(
         self, chat_id: int, old_date: datetime, new_date: datetime
     ) -> bool:
@@ -139,28 +141,45 @@ class Request:
 
         return claimed is not None
 
-    async def set_chat_date(self, chat_id, date) -> None:
-        """This method is used to set the date of the chat in the database."""
+    async def _update_chat(self, chat_id: int, **values) -> bool:
+        """Update the chat's columns; False when the chat is not registered."""
 
         async with self.session() as session:
-            statement = select(Chat).where(Chat.chat_id == chat_id)
-            chat = (await session.scalars(statement)).one()
-            chat.date = date
-
+            statement = (
+                update(Chat)
+                .where(Chat.chat_id == chat_id)
+                .values(**values)
+                .returning(Chat.chat_id)
+            )
+            updated = (await session.execute(statement)).scalar_one_or_none()
             await session.commit()
 
-    async def set_chat_delta(self, chat_id, delta) -> None:
-        """This method is used to set the delta of the chat in the database."""
+        return updated is not None
+
+    async def set_chat_date(self, chat_id: int, date: datetime) -> bool:
+        """Set the chat's next rotation; False when the chat is not registered."""
+
+        return await self._update_chat(chat_id, date=date)
+
+    async def set_chat_delta(self, chat_id: int, delta: int) -> bool:
+        """Set the chat's rotation interval; False when the chat is not registered."""
+
+        return await self._update_chat(chat_id, delta=delta)
+
+    async def set_chat_timezone(self, chat_id: int, zone: str) -> bool:
+        """Set the chat's IANA time zone; False when the chat is not registered."""
+
+        return await self._update_chat(chat_id, timezone=zone)
+
+    async def get_chat_timezone(self, chat_id: int) -> str:
+        """The chat's IANA time zone; the default zone for an unknown chat."""
 
         async with self.session() as session:
-            statement = select(Chat).where(Chat.chat_id == chat_id)
-            chat = (await session.scalars(statement)).one()
-            chat.delta = delta
+            statement = select(Chat.timezone).where(Chat.chat_id == chat_id)
+            return (await session.scalar(statement)) or DEFAULT_TIMEZONE
 
-            await session.commit()
-
-    async def get_chat_settings(self, chat_id) -> list:
-        """This method is used to get the settings of the chats from the database."""
+    async def get_chat_settings(self, chat_id) -> Optional[ChatSettings]:
+        """The chat's schedule and default avatar, or None for an unknown chat."""
 
         async with self.session() as session:
             statement_chat = select(Chat).where(Chat.chat_id == chat_id)
@@ -170,7 +189,9 @@ class Request:
                 .where(Platinum.hunter == "*Default*")
                 .where(Platinum.game == "*Default*")
             )
-            chat = (await session.scalars(statement_chat)).one()
+            chat = (await session.scalars(statement_chat)).one_or_none()
+            if chat is None:
+                return None
             default_avatar_record = (
                 await session.scalars(statement_default)
             ).one_or_none()
@@ -179,21 +200,23 @@ class Request:
             if default_avatar_record is not None:
                 photo_id = default_avatar_record.photo_id
 
-            return [chat.date, chat.delta, photo_id]
+            return ChatSettings(
+                date=chat.date,
+                delta=chat.delta,
+                timezone=chat.timezone,
+                default_photo_id=photo_id,
+            )
 
-    async def add_chat_data(self, chat_id, date, delta) -> None:
-        """This method is used to add the chat data to the database."""
+    async def add_chat(self, chat_id: int, date: datetime, delta: int) -> None:
+        """Register the chat; an already registered chat keeps its settings."""
 
         async with self.session() as session:
-            statement = select(Chat).where(Chat.chat_id == chat_id)
-            chat = (await session.scalars(statement)).one_or_none()
-
-            if chat is None:
-                session.add(Chat(chat_id=chat_id, date=date, delta=delta))
-            else:
-                chat.date = date
-                chat.delta = delta
-
+            statement = (
+                insert(Chat)
+                .values(chat_id=chat_id, date=date, delta=delta)
+                .on_conflict_do_nothing(index_elements=[Chat.chat_id])
+            )
+            await session.execute(statement)
             await session.commit()
 
     async def get_queue(self, chat_id):
@@ -278,10 +301,7 @@ class Request:
             await session.commit()
 
     async def get_top(self, chat_id, date: datetime):
-        """This method is used to get the top from the database."""
-
-        timezone = tz("Europe/Moscow")
-        date = date.astimezone(tz=timezone)
+        """Trophy counts per hunter since ``date`` (an aware datetime)."""
 
         async with self.session() as session:
             statement = (
@@ -294,7 +314,9 @@ class Request:
             return (await session.execute(statement)).all()
 
     async def get_history(self, chat_id: int, user_id: int, username: str = None):
-        """This method is used to get the history from the database."""
+        """The user's trophies, dated in the chat's time zone."""
+
+        zone = get_zone(await self.get_chat_timezone(chat_id))
 
         async with self.session() as session:
             if username is None:
@@ -315,10 +337,9 @@ class Request:
                 )
 
             data = []
-            timezone = tz("Europe/Moscow")
             for record in (await session.execute(statement)).all():
                 game, date, platform = record
-                date = date.astimezone(tz=timezone)
+                date = date.astimezone(tz=zone)
                 date_str = date.strftime("%d.%m.%Y")
                 data.append((game, date_str, platform))
 
