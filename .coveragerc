@@ -1,0 +1,7 @@
+# Used by `pytest --cov` locally and in CI (.github/workflows/checks.yml).
+[run]
+source = src
+branch = True
+
+[report]
+skip_empty = True
