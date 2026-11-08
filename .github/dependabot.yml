@@ -12,7 +12,8 @@ updates:
     schedule:
       interval: weekly
 
-  # requirements.txt and requirements-dev.txt, one grouped PR a week.
+  # requirements.txt, requirements-dev.txt and requirements-docs.txt,
+  # one grouped PR a week.
   - package-ecosystem: "pip"
     directory: "/"
     target-branch: "dev"
