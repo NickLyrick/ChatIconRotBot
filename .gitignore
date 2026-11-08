@@ -1,3 +1,7 @@
 .vscode/settings.json
 *__pycache__*
 .pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+pytest-report.xml
