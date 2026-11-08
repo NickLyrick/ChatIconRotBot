@@ -1,3 +1,5 @@
+"""Inline keyboards of the game survey and the /settings menu."""
+
 from .game_survey import (
     GameSurveyCallbackData,
     SurveyState,

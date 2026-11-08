@@ -1,0 +1,84 @@
+site_name: ChatIconRotBot
+site_description: Telegram bot that rotates trophy screenshots as the group chat avatar.
+site_url: https://nicklyrick.github.io/ChatIconRotBot/
+repo_url: https://github.com/NickLyrick/ChatIconRotBot
+repo_name: NickLyrick/ChatIconRotBot
+edit_uri: edit/dev/docs/
+
+# Fail the build on broken links and missing references (CI uses --strict too).
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+plugins:
+  - search
+  # The API reference is built from the docstrings by static analysis:
+  # nothing is imported, so no TOKEN or database is needed.
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: sphinx
+            members_order: source
+            show_root_heading: true
+            show_root_full_path: true
+            show_source: true
+            show_submodules: false
+            show_if_no_docstring: false
+            heading_level: 2
+            merge_init_into_class: true
+            separate_signature: true
+            show_signature_annotations: true
+
+nav:
+  - Overview: index.md
+  - Commands: commands.md
+  - Setup: setup.md
+  - Deployment: deployment.md
+  - Database: database.md
+  - Development: development.md
+  - API reference:
+      - reference/index.md
+      - Bot: reference/bot.md
+      - Dispatcher: reference/dispatcher.md
+      - Handlers: reference/handlers.md
+      - Keyboards: reference/keyboards.md
+      - Filters: reference/filters.md
+      - Middleware: reference/middleware.md
+      - Scheduler: reference/scheduler.md
+      - Database: reference/database.md
+      - Utilities: reference/utility.md
+      - Web app: reference/web.md
+      - Release tasks: reference/release.md

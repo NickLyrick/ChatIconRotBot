@@ -7,6 +7,10 @@ schedule, and runs a monthly rating survey on the games that were shown.
 Built with [aiogram 3](https://docs.aiogram.dev/) (async, webhook over aiohttp),
 SQLAlchemy 2 + PostgreSQL, Alembic. All bot messages are in Russian.
 
+Documentation, including the API reference generated from the docstrings:
+<https://nicklyrick.github.io/ChatIconRotBot/>. To preview it locally, run
+`pip install -r requirements-docs.txt` and `mkdocs serve`.
+
 ## How it works
 
 1. **Submit a trophy.** A member posts a photo captioned `@YourBotName Game Title`
