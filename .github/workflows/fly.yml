@@ -3,13 +3,28 @@ on:
   push:
     branches:
       - master
-env:
-  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two deploys of the same app at once, and never cancel one midway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
   deploy:
-      name: Deploy app
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v3
-        - uses: superfly/flyctl-actions/setup-flyctl@master
-        - run: flyctl deploy --remote-only
+    name: Deploy app
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

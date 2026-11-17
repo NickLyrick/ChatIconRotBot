@@ -1,3 +1,5 @@
+"""Inline keyboards and callback data of the game rating survey."""
+
 from enum import IntEnum, auto
 from typing import Optional
 

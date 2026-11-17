@@ -1,0 +1,59 @@
+name: Docs
+# Builds the MkDocs site on every branch (strict: broken links fail the run)
+# and publishes it to GitHub Pages from master.
+# Pages must be set to "GitHub Actions" in Settings → Pages.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  # Never cancel a Pages deploy midway.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+env:
+  PYTHON_VERSION: '3.14'
+  NO_MKDOCS_2_WARNING: '1'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+      - name: Install requirements
+        run: pip install -r requirements-docs.txt
+      - name: Build site
+        run: mkdocs build --strict
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to Pages
+    if: github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
